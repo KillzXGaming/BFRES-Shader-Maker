@@ -195,6 +195,14 @@ namespace ShaderBuilder
                         else
                         {
                             string str = (string)shaderOption.Value;
+                            // Render info can toggle macro settings
+                            if (!string.IsNullOrEmpty(optionMacro.RenderInfo) && 
+                                material.RenderInfos.ContainsKey(optionMacro.RenderInfo))
+                            {
+                                string renderInfoChoice = material.GetRenderInfoString(optionMacro.RenderInfo);
+                                str = optionMacro.GetMacroChoiceByRenderInfo(renderInfoChoice);
+                            }
+
                             // V10 using boolean but bfsha still need 0/1
                             if ((string)shaderOption.Value == "True")
                                 str = "1";
