@@ -38,9 +38,9 @@ layout (binding = 4, std140) uniform MyMaterial //@ id="game_material" type="mat
 ```
 
 Make sure the `type` property is one of these if it is a material, skeleton, or shape block, else no type property is needed.
-skeleton
-material
-shape
+- skeleton
+- material
+- shape
 
 For these shaders to work on a game, make sure the block, samplers, and attribute data is accurately replicated. 
 
