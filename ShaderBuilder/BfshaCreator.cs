@@ -170,7 +170,7 @@ namespace ShaderBuilderTool.Convert
                         // Build the bnsh variant and binary nvn data and store it
                         var bnshVariation = BnshCreator.CreateVariation(varArgs);
                         // Failed to compile, skip
-                        if (bnshVariation.CompilerVertex != null && bnshVariation.CompilerFragment != null)
+                        if (bnshVariation.CompilerVertex == null || bnshVariation.CompilerFragment == null)
                             continue;
 
                         shaderModel.BnshFile.Variations.Add(bnshVariation.Variation);

@@ -10,6 +10,9 @@ For making brand new bfres directly from blender, there will be a future update 
 Edit settings .json to your needed settings. Default one works for MK8 shaders.
 For SMO, download the releases zip for SMO which will have SMO settings.
 
+Add your own .bfres files to the "Bfres" folder. 
+When you run the tool, it will process the bfres with the updated shaders to the output folder.
+
 ## How it works (advanced)
 A bfsha is made of common shader elements.
 - Samplers
