@@ -78,10 +78,7 @@ namespace ShaderBuilder
                 return;
             }
 
-            ArgSettings settings = new ArgSettings();
-            settings.Save();
-
-            ArgSettings.Load();
+            ArgSettings settings = ArgSettings.Load();
 
             if (!Directory.Exists(settings.ShaderFolder))
                 throw new Exception($"Failed to find shader folder {settings.ShaderFolder}.");
