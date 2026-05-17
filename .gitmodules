@@ -1,0 +1,6 @@
+[submodule "ShaderLibrary"]
+	path = ShaderLibrary
+	url = https://github.com/KillzXGaming/ShaderLibrary.git
+[submodule "BfresLibrary"]
+	path = BfresLibrary
+	url = https://github.com/KillzXGaming/BfresLibrary.git

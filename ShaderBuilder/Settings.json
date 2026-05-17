@@ -1,0 +1,18 @@
+{
+  "ShaderFolder": "Turbo",
+  "BfresFolder": "Bfres",
+  "OutputFolder": "Output",
+  "IsEmbeddedBfsha": true,
+  "BfshaSettings": {
+    "VersionMajor": 7,
+    "VersionMinor": 0,
+    "VersionMicro": 0,
+    "Platform": 1,
+    "BnshVersionMajor": 2,
+    "BnshVersionMinor": 1,
+    "BnshVersionMicro": 2,
+    "ShaderVersionMajor": 1,
+    "ShaderVersionMinor": 5,
+    "Variants": []
+  }
+}
