@@ -114,6 +114,8 @@ namespace ShaderBuilderTool.Convert
             // Load variation data
             foreach (var shaderModel in bfsha.ShaderModels.Values)
             {
+                // This has to be -1 for MK8 or it crashes
+                shaderModel.DefaultProgramIndex = -1; 
                 shaderModel.BnshFile.Header.ApiVersion = (ushort)(args.Platform == Platforms.Ounce ? 200 : 0);
 
                 shaderModel.BnshFile.BinHeader.VersionMajor = args.BnshVersionMajor;
@@ -139,7 +141,7 @@ namespace ShaderBuilderTool.Convert
                 }
                 ShaderOptionCreator.SetupOptionKeyFlags(shaderModel);
 
-                List<int[]> keys = new();
+                List<Tuple<int[], BfshaShaderProgram>> programs = new();
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
                 {
                     // options which can have multiple branched paths
@@ -148,7 +150,7 @@ namespace ShaderBuilderTool.Convert
                         // Build our unique program key based on the option choices/macros
                         int[] keyTable = BuildKeyData(shaderModel, options);
                         // Prevent duplicate variants
-                        if (keys.Any(x => x.SequenceEqual(keyTable)))
+                        if (programs.Select(x => x.Item1).Any(x => x.SequenceEqual(keyTable)))
                             continue;
 
                         BnshCreator.VariantArg varArgs = new();
@@ -179,11 +181,16 @@ namespace ShaderBuilderTool.Convert
                             intermediateShaderModel, bnshVariation.Variation,
                             bnshVariation.CompilerVertex.Symbols,
                             bnshVariation.CompilerFragment.Symbols);
-                        shaderModel.Programs.Add(program);
-                        keys.Add(keyTable);
+                        programs.Add(Tuple.Create(keyTable, program));
                     }
                 }
-                shaderModel.KeyTable = keys.SelectMany(x => x).ToArray();
+                SortKeys(ref programs);
+                foreach (var prog in programs)
+                    shaderModel.Programs.Add(prog.Item2);
+
+                shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
+                foreach (var prog in programs)
+                    shaderModel.Programs.Add(prog.Item2);
             }
         }
 
@@ -218,7 +225,8 @@ namespace ShaderBuilderTool.Convert
                 }
                 ShaderOptionCreator.SetupOptionKeyFlags(shaderModel);
 
-                List<int[]> keys = new();
+                List<Tuple<int[], BfshaShaderProgram>> programs = new();
+
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
                 {
                     // options which can have multiple branched paths
@@ -227,7 +235,7 @@ namespace ShaderBuilderTool.Convert
                         // Build our unique program key based on the option choices/macros
                         int[] keyTable = BuildKeyData(shaderModel, options);
                         // Prevent duplicate variants
-                        if (keys.Any(x => x.SequenceEqual(keyTable)))
+                        if (programs.Select(x => x.Item1).Any(x => x.SequenceEqual(keyTable)))
                             continue;
 
                         // Source data
@@ -249,13 +257,39 @@ namespace ShaderBuilderTool.Convert
                         // Build the program data via the gsh file binary
                         var gsh = new GSHFile(new MemoryStream(gshRaw));
                         var program = new BfshaShaderProgram();
-                        shaderModel.Programs.Add(program);
-                        keys.Add(keyTable);
+                        programs.Add(Tuple.Create(keyTable, program));
                         BfshaGX2ShaderImporter.Import(shaderModel, program, gsh.Shaders[0], intermediateShaderModel);
                     }
                 }
-                shaderModel.KeyTable = keys.SelectMany(x => x).ToArray();
+                SortKeys(ref programs);
+                foreach (var prog in programs)
+                    shaderModel.Programs.Add(prog.Item2);
+
+                shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
             }
+        }
+
+        static void SortKeys(ref List<Tuple<int[], BfshaShaderProgram>> programs)
+        {
+            // Ordered by bit data
+            // This definitely did not take hours of crashes and debugging to notice this is important
+            programs.Sort((a, b) =>
+            {
+                var keyA = a.Item1;
+                var keyB = b.Item1;
+
+                int len = Math.Min(keyA.Length, keyB.Length);
+
+                for (int i = 0; i < len; i++)
+                {
+                    uint ua = (uint)keyA[i];
+                    uint ub = (uint)keyB[i];
+
+                    if (ua != ub)
+                        return ua < ub ? -1 : 1;
+                }
+                return keyB.Length.CompareTo(keyA.Length);
+            });
         }
 
         // Branch options
