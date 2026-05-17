@@ -62,7 +62,7 @@ namespace ShaderBuilderTool.Convert
             Ounce,
         }
 
-        public Args MakeGameConfig(BfshaFile bfsha)
+        public static Args MakeGameConfig(BfshaFile bfsha)
         {
             Args args = new()
             {
