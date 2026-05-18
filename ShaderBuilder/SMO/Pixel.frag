@@ -598,20 +598,31 @@ vec3 CalculateMetalFlakeEmission(float refract_bias_x, float refract_bias_y, vec
 
 void SetupBlend()
 {
-
     //Calc blending. Compute any references first
+#if enable_blend0
     CHECK_CALC_BLEND_REFS(0);
     BLEND0_OUTPUT = CALCULATE_BLEND(0);
+#endif
+#if enable_blend1
     CHECK_CALC_BLEND_REFS(1);
     BLEND1_OUTPUT = CALCULATE_BLEND(1);
+#endif
+#if enable_blend2
     CHECK_CALC_BLEND_REFS(2);
     BLEND2_OUTPUT = CALCULATE_BLEND(2);
+#endif
+#if enable_blend3
     CHECK_CALC_BLEND_REFS(3);
     BLEND3_OUTPUT = CALCULATE_BLEND(3);
+#endif
+#if enable_blend4
     CHECK_CALC_BLEND_REFS(4);
     BLEND4_OUTPUT = CALCULATE_BLEND(4);
+#endif
+#if enable_blend5
     CHECK_CALC_BLEND_REFS(5);
     BLEND5_OUTPUT = CALCULATE_BLEND(5);
+#endif
 }
 
 float CalculateDirectionalLight(vec3 N)

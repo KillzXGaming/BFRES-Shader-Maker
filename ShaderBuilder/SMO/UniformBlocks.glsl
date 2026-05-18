@@ -252,14 +252,14 @@
 #define enable_lod_metalness_fix false //@
 #define cSkinWeightNum 0 //@ choices="0 1 2 3 4" is_skin_count="true"
 //-----------------------------------
-//Dynamic Options
+//Dynamic Options (SMO has 4 always used variants, 2 for prog texture, 2 for motion on/off)
 //-----------------------------------
 #define enable_compose_footprint 0 //@ branch="dynamic" choices="0 1 2"
 #define enable_compose_capture false //@ branch="dynamic"
 #define enable_add_stain_proc_texture_3d false //@ branch="dynamic"
-#define compose_prog_texture0 false //@ branch="dynamic"
+#define compose_prog_texture0 false //@ branch="dynamic" flags="compile_all_coices"
 #define enable_parallax_cubemap false //@ branch="dynamic"
-#define is_output_motion_vec true //@ branch="dynamic"
+#define is_output_motion_vec true //@ branch="dynamic" flags="compile_all_coices"
 #define material_lod_level false //@ branch="dynamic"
 #define system_id 0 //@ branch="dynamic" choices="0"
 
