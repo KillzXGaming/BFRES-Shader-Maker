@@ -2,6 +2,7 @@
 
 using BfresLibrary;
 using BlenderBfresConverter;
+using CafeLibrary;
 using CommandLine;
 using Newtonsoft.Json;
 using ShaderBuilderTool.Convert;
@@ -10,6 +11,8 @@ using ShaderLibrary.IO;
 using System;
 using System.IO;
 using System.Text;
+using static ShaderBuilder.Program;
+using static ShaderLibrary.ControlShader;
 
 namespace ShaderBuilder
 {
@@ -40,6 +43,10 @@ namespace ShaderBuilder
             /// </summary>
             public bool IsWiiU { get; set; } = false;
             /// <summary>
+            /// Determines to make a new sarc to store the bfsha shader.
+            /// </summary>
+            public bool ShaderSarc { get; set; } = false;
+            /// <summary>
             /// Bfsha settings and shader creation info.
             /// </summary>
             public BfshaCreator.Args BfshaSettings { get; set; } = new();
@@ -57,26 +64,54 @@ namespace ShaderBuilder
             }
         }
 
+        public class ArchiveFile
+        {
+            public SarcData Sarc;
+            public bool IsCompressed { get; set; }
+            public string OutputFilePath { get; set; }
+
+            public void Save()
+            {
+                var saved = SARC_Parser.PackN(Sarc);
+                var bytes = saved.Item2;
+                if (IsCompressed)
+                    bytes = szs.Encode(saved.Item2, szs.CompressionAlgorithm.MK8, (uint)saved.Item1);
+                File.WriteAllBytes(this.OutputFilePath, bytes);
+            }
+        }
+
         public class BfresFile
         {
             public ResFile ResFile { get; set; }
             public string FilePath { get; set; }
             public bool IsCompressed { get; set; }
             public string OutputFilePath { get; set; }
+            public SarcData Archive;
+            public string ArchiveFileName;
 
             public void Save()
             {
-                if (this.IsCompressed)
+                if (Archive != null) // .sarc (save just bfres to archive)
                 {
+                    // Shouldn't happen but just incase
                     MemoryStream mem = new MemoryStream();
                     this.ResFile.Save(mem);
-                    byte[] bytes = YAZ0.Compress(mem.ToArray());
-                    File.WriteAllBytes(this.OutputFilePath, bytes);
-
-                    ResFile.Save(this.OutputFilePath + ".bfsha");
+                    Archive.Files[ArchiveFileName] = mem.ToArray();
                 }
-                else
-                    this.ResFile.Save(this.OutputFilePath);
+                else // .bfres or compressed .szs
+                {
+                    if (this.IsCompressed)
+                    {
+                        MemoryStream mem = new MemoryStream();
+                        this.ResFile.Save(mem);
+                        byte[] bytes = szs.Encode(mem.ToArray(), szs.CompressionAlgorithm.MK8);
+                        File.WriteAllBytes(this.OutputFilePath, bytes);
+
+                        ResFile.Save(this.OutputFilePath + ".bfsha");
+                    }
+                    else
+                        this.ResFile.Save(this.OutputFilePath);
+                }
             }
         }
 
@@ -105,10 +140,26 @@ namespace ShaderBuilder
                 {
                     ResFile resFile = new ResFile();
                     // Check for compression
-                    if (YAZ0.IsCompressed(arg))
-                        resFile = new ResFile(new MemoryStream(szs.Decode(File.ReadAllBytes(arg))));
-                    else
-                        resFile = new ResFile(arg);
+                    Stream stream = File.OpenRead(arg);
+                    if (YAZ0.IsCompressed(stream))
+                    {
+                        stream?.Close();
+                        stream = new MemoryStream(YAZ0.Decompress(File.ReadAllBytes(arg)));
+                    }
+                    if (SARC_Parser.IsSarc(stream))
+                    {
+                        var sarc = SARC_Parser.UnpackRamN(stream);
+                        foreach (var f in sarc.Files)
+                        {
+                            if (f.Key.EndsWith(".bfres"))
+                            {
+                                resFile = new ResFile(new MemoryStream(f.Value));
+                                break;
+                            }
+                        }
+                    }
+                    else if (IsBfres(stream))
+                        resFile = new ResFile(stream);
 
                     foreach (var model in resFile.Models.Values)
                     {
@@ -151,22 +202,62 @@ namespace ShaderBuilder
 
             // First create intermediate shader from folder of glsl code
             var shader = IntermediateShader.CreateFromFolder(settings.ShaderFolder);
+            if (shader.ShaderModels.Count == 0)
+            {
+                throw new Exception($"Failed to load shaders in {settings.ShaderFolder}!");
+
+            }
             // Process each bfres 
+            List<ArchiveFile> archives = new();
             foreach (var file in Directory.GetFiles(settings.BfresFolder, "*", SearchOption.AllDirectories))
             {
-                BfresFile bfres = new BfresFile();
+                string subDir = Path.GetRelativePath(settings.BfresFolder, Path.GetDirectoryName(file));
+                string outputFilePath = Path.Combine(settings.OutputFolder, subDir, Path.GetFileName(file));
+                bool isCompressed = false;
+
                 try
                 {
                     // Check for compression
-                    // Todo add SARC support
-                    if (YAZ0.IsCompressed(file))
+                    Stream stream = File.OpenRead(file);
+                    if (YAZ0.IsCompressed(stream))
                     {
-                        bfres.IsCompressed = true;
-                        bfres.ResFile = new ResFile(new MemoryStream(szs.Decode(File.ReadAllBytes(file))));
+                        stream?.Close();
+                        isCompressed = true;
+                        stream = new MemoryStream(YAZ0.Decompress(File.ReadAllBytes(file)));
                     }
-                    else if (IsBfres(file))
+                    if (SARC_Parser.IsSarc(stream))
                     {
-                        bfres.ResFile = new ResFile(file);
+                        var sarc = SARC_Parser.UnpackRamN(stream);
+                        archives.Add(new ArchiveFile()
+                        {
+                            Sarc = sarc,
+                            OutputFilePath = outputFilePath,
+                            IsCompressed = isCompressed,
+                        });
+
+                        foreach (var f in sarc.Files)
+                        {
+                            if (f.Key.EndsWith(".bfres"))
+                            {
+                                bfresFiles.Add(new BfresFile()
+                                {
+                                    Archive = sarc,
+                                    FilePath = f.Key,
+                                    ArchiveFileName = f.Key,
+                                    ResFile = new ResFile(new MemoryStream(f.Value)),
+                                });
+                            }
+                        }
+                    }
+                    else if (IsBfres(stream))
+                    {
+                        bfresFiles.Add(new BfresFile()
+                        {
+                            FilePath = file,
+                            IsCompressed = isCompressed,
+                            OutputFilePath = outputFilePath,
+                            ResFile = new ResFile(file),
+                        });
                     }
                     else // Not a valid bfres, skip
                         continue;
@@ -176,14 +267,19 @@ namespace ShaderBuilder
                     Console.WriteLine($"Failed to load bfres {file}. Error: \n{ex}");
                     continue;
                 }
-                bfresFiles.Add(bfres);
+            }
+
+            foreach (var bfres in bfresFiles)
+            { 
+                if (bfres.ResFile == null)
+                    continue;
 
                 // Look for injectable materials
                 foreach (var model in bfres.ResFile.Models.Values)
                 {
                     // Bfres name -> model name
                     // Users can add new materials or inject the existing
-                    string dir = Path.Combine(settings.BfresFolder, Path.GetFileNameWithoutExtension(file), model.Name);
+                    string dir = Path.Combine(settings.BfresFolder, Path.GetFileNameWithoutExtension(bfres.FilePath), model.Name);
                     if (!Directory.Exists(dir))
                         continue;
 
@@ -211,9 +307,6 @@ namespace ShaderBuilder
 
                     }
                 }
-
-                string subDir = Path.GetRelativePath(settings.BfresFolder, Path.GetDirectoryName(file));
-                bfres.OutputFilePath = Path.Combine(settings.OutputFolder, subDir, Path.GetFileName(file));
 
                 if (settings.IsEmbeddedBfsha)
                 {
@@ -245,18 +338,42 @@ namespace ShaderBuilder
                 var bfsha = SetupShaders(settings.BfshaSettings,
                     bfresFiles.SelectMany(x => x.ResFile.Models.Values), shader);
 
-                bfsha.Save(Path.Combine(settings.OutputFolder, bfsha.Name + ".bfsha"));
+                if (settings.ShaderSarc)
+                {
+                    SarcData sarc = new()
+                    {
+                        endianness = settings.IsWiiU ? Syroot.BinaryData.ByteOrder.BigEndian : Syroot.BinaryData.ByteOrder.LittleEndian,
+                        Files = new(),
+                        HashOnly = false,
+                    };
+                    var mem = new MemoryStream();
+                    bfsha.Save(mem);
+                    sarc.Files.Add(bfsha.Name + ".bfsha", mem.ToArray());
+                    var saved = SARC_Parser.PackN(sarc);
+                    // Default to compressed
+                    var compressed = szs.Encode(saved.Item2, szs.CompressionAlgorithm.MK8, (uint)saved.Item1);
+                    File.WriteAllBytes(Path.Combine(settings.OutputFolder, $"{bfsha.Name}.szs"), compressed);
+                }
+                else
+                    bfsha.Save(Path.Combine(settings.OutputFolder, bfsha.Name + ".bfsha"));
                 // Save each bfres
                 foreach (var bfres in bfresFiles)
                     bfres.Save();
             }
+
+            // Save each archive if loaded
+            foreach (var archive in archives)
+            {
+                archive.Save();
+            }
         }
 
-        static bool IsBfres(string filePath)
+        static bool IsBfres(Stream stream)
         {
-            using (var reader = new BinaryDataReader(File.OpenRead(filePath)))
+            using (var reader = new BinaryDataReader(stream, false, true))
             {
                 var magic = Encoding.ASCII.GetString(reader.ReadBytes(4));
+                stream.Position = 0;
                 return magic == "FRES";
             }
         }

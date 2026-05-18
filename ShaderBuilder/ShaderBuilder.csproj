@@ -51,6 +51,19 @@
     <None Update="Turbo\Vertex.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Turbo\WiiUCommon.glsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Szs\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Syroot.BinaryData">
+      <HintPath>..\BfresLibrary\Libraries\Syroot.BinaryData.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

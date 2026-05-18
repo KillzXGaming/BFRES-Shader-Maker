@@ -8,10 +8,11 @@ namespace ShaderBuilder
 {
     public unsafe class YAZ0
     {
-        public static bool IsCompressed(string filePath)
+        public static bool IsCompressed(Stream stream)
         {
-            using (var reader = new BinaryDataReader(File.OpenRead(filePath))) {
+            using (var reader = new BinaryDataReader(stream, false, true)) {
                 var magic = Encoding.ASCII.GetString(reader.ReadBytes(4));
+                stream.Position = 0;
                 return magic == "Yaz0";
             }
         }
