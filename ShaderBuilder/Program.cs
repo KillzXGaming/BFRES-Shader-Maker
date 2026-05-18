@@ -63,6 +63,21 @@ namespace ShaderBuilder
             public string FilePath { get; set; }
             public bool IsCompressed { get; set; }
             public string OutputFilePath { get; set; }
+
+            public void Save()
+            {
+                if (this.IsCompressed)
+                {
+                    MemoryStream mem = new MemoryStream();
+                    this.ResFile.Save(mem);
+                    byte[] bytes = YAZ0.Compress(mem.ToArray());
+                    File.WriteAllBytes(this.OutputFilePath, bytes);
+
+                    ResFile.Save(this.OutputFilePath + ".bfsha");
+                }
+                else
+                    this.ResFile.Save(this.OutputFilePath);
+            }
         }
 
         public static void Main(string[] args)
@@ -219,19 +234,8 @@ namespace ShaderBuilder
                     {
                         Name = bfsha.Name + ".bfsha",
                         Data = bfsha_mem.ToArray(),
-                    }); 
-
-                    if (bfres.IsCompressed)
-                    {
-                        MemoryStream mem = new MemoryStream();
-                        bfres.ResFile.Save(mem);
-                        byte[] bytes = YAZ0.Compress(mem.ToArray());
-                        File.WriteAllBytes(bfres.OutputFilePath, bytes);
-
-                        bfsha.Save(bfres.OutputFilePath + ".bfsha");
-                    }
-                    else
-                        bfres.ResFile.Save(bfres.OutputFilePath);
+                    });
+                    bfres.Save();
                 }
             }
 
@@ -242,6 +246,9 @@ namespace ShaderBuilder
                     bfresFiles.SelectMany(x => x.ResFile.Models.Values), shader);
 
                 bfsha.Save(Path.Combine(settings.OutputFolder, bfsha.Name + ".bfsha"));
+                // Save each bfres
+                foreach (var bfres in bfresFiles)
+                    bfres.Save();
             }
         }
 
