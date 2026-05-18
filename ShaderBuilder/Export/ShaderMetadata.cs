@@ -12,14 +12,14 @@ namespace ShaderBuilder
         public static void DumpMetaData(ShaderModel shader, string folder)
         {
             StreamWriter wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_options.txt"));
-            wr.WriteLine("-----------------------------------");
-            wr.WriteLine("Static Options");
-            wr.WriteLine("-----------------------------------");
+            wr.WriteLine("//-----------------------------------");
+            wr.WriteLine("//Static Options");
+            wr.WriteLine("//-----------------------------------");
             foreach (ShaderOption option in shader.StaticOptions.Values)
                 WriteOption(option, false);
-            wr.WriteLine("-----------------------------------");
-            wr.WriteLine("Dynamic Options");
-            wr.WriteLine("-----------------------------------");
+            wr.WriteLine("//-----------------------------------");
+            wr.WriteLine("//Dynamic Options");
+            wr.WriteLine("//-----------------------------------");
             foreach (ShaderOption option in shader.DynamicOptions.Values)
                 WriteOption(option, true);
             wr.Close();

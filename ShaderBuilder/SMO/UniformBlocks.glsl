@@ -24,6 +24,287 @@
 //@ render_info="enable_polygon_offset" default="false" type="string" group="Render Info" order="-1"
 //@ render_info="polygon_offset_value" default="-1" type="float" group="Render Info" order="-1"
 
+//-----------------------------------
+//Static Options
+//-----------------------------------
+#define enable_compose_ripple_emission false //@
+#define o_base_color 10 //@ choices="10 15 80 81 82 83 84 85 100 101 160 170"
+#define o_normal 30 //@ choices="20 30 50 51 52 53 54 80 81 82 83 84 85 100 101"
+#define o_roughness 116 //@ choices="10 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 110 111 112 113 115 116 160 170"
+#define o_metalness 115 //@ choices="10 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 110 111 112 113 115 116 160 170"
+#define o_alpha 116 //@ choices="10 15 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 100 101 110 111 112 113 115 116 160 170"
+#define roughness_component 30 //@ choices="30 40 50 60 70 80 90 100"
+#define metalness_component 30 //@ choices="30 40 50 60 70 80 90 100"
+#define alpha_component 60 //@ choices="30 40 50 60"
+#define displacement_component 10 //@ choices="10 30"
+#define enable_displacement false //@
+#define displacement_fuv_selector 10 //@ choices="10 11 12 13 14"
+#define displacement_mul_vtx_color false //@
+#define displacement_mul_vtx_alpha false //@
+#define displacement1_component 10 //@ choices="10 30"
+#define enable_displacement1 false //@
+#define displacement1_fuv_selector 10 //@ choices="10 11 12 13 14"
+#define displacement1_mul_vtx_color false //@
+#define displacement1_mul_vtx_alpha false //@
+#define enable_emission false //@
+#define o_emission 50 //@ choices="10 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 100 101 160 170"
+#define emission_component 10 //@ choices="10 30 40 50 60"
+#define emission_type 0 //@ choices="0 2"
+#define emission_scale_type 0 //@ choices="0 1 2 3 4 5 6 7"
+#define enable_alphamask false //@
+#define alphamask_type 10 //@ choices="10 20"
+#define alpha_test_func 60 //@ choices="0 10 20 30 40 50 60 70"
+#define enable_transparent false //@
+#define transparent_type 10 //@ choices="10 20 25 30 40 50"
+#define o_refract_color 50 //@ choices="10 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 160 170"
+#define o_refract_rate 115 //@ choices="50 51 52 53 54 60 61 62 63 80 81 82 83 84 85 110 111 112 113 115 116 160 170"
+#define refract_rate_component 30 //@ choices="30 40 50 60"
+#define o_refract_eta 115 //@ choices="50 51 52 53 54 60 61 62 63 110 111 112 113 115 160 170"
+#define refract_eta_component 30 //@ choices="30 40 50 60"
+#define o_transparent_tex 50 //@ choices="10 50 51 52 53 54 160 170"
+#define transparent_tex_type 10 //@ choices="10 15 20 25"
+#define enable_indirect_dist_correct false //@
+#define o_metal_flake_power 116 //@ choices="50 51 52 53 54 60 61 62 63 110 111 112 113 115 116 160 170"
+#define metal_flake_power_component 30 //@ choices="30 40 50 60 70 80 90 100"
+#define metal_flake_emission_scale_type 0 //@ choices="0 1 2 3 4 5 6 7"
+#define enable_structural_color false //@
+#define o_structural_eta 115 //@ choices="50 51 52 53 54 60 61 62 63 110 111 112 113 115 160 170"
+#define structural_eta_component 30 //@ choices="30 40 50 60"
+#define enable_cloth_nov false //@
+#define o_cloth_mask_map 116 //@ choices="10 50 51 52 53 54 116 160 170"
+#define cloth_mask_component 30 //@ choices="30 40 50 60 70 80 90 100"
+#define o_cloth_map 115 //@ choices="10 50 51 52 53 54 80 81 82 83 84 85 60 61 62 63 110 111 112 113 115 116 160 170"
+#define o_cloth_emission_map 115 //@ choices="10 50 51 52 53 54 80 81 82 83 84 85 60 61 62 63 110 111 112 113 115 116 160 170"
+#define is_cloth_nov_reverse false //@
+#define is_cloth_nov_use_rnd_noise_mask false //@
+#define cloth_nov_emission_scale_type 3 //@ choices="0 1 2 3 4 5 6 7"
+#define enable_sss false //@
+#define o_sss 50 //@ choices="10 50 51 52 53 54 80 81 82 83 84 85 116 160 170"
+#define sss_component 30 //@ choices="30 40 50 60"
+#define enable_ao false //@
+#define o_ao 50 //@ choices="50 51 52 53 54 160 170"
+#define ao_component 30 //@ choices="30 40 50 60"
+#define enable_mirror false //@
+#define enable_translucent false //@
+#define enable_flow0 false //@
+#define flow0_flow_map 50 //@ choices="50 51 52 53 54"
+#define flow0_flow_type 20 //@ choices="10 20 50 51 52 53 54"
+#define enable_flow1 false //@
+#define flow1_flow_map 50 //@ choices="50 51 52 53 54"
+#define flow1_flow_type 20 //@ choices="10 20 50 51 52 53 54"
+#define enable_flow2 false //@
+#define flow2_flow_map 50 //@ choices="50 51 52 53 54"
+#define flow2_flow_type 20 //@ choices="10 20 50 51 52 53 54"
+#define enable_base_color true //@
+#define enable_base_color_mul_color false //@
+#define base_color_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_normal false //@
+#define disable_decode_normalmap false //@
+#define normal_fuv_selector 10 //@ choices="10 11 12 13 20 21 50 51 52 53"
+#define enable_uniform0 false //@
+#define enable_uniform0_mul_color false //@
+#define enable_uniform0_mul_vtxcolor false //@
+#define enable_uniform0_roughness_lod false //@
+#define uniform0_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_uniform1 false //@
+#define enable_uniform1_mul_color false //@
+#define enable_uniform1_mul_vtxcolor false //@
+#define enable_uniform1_roughness_lod false //@
+#define uniform1_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_uniform2 false //@
+#define enable_uniform2_mul_color false //@
+#define enable_uniform2_mul_vtxcolor false //@
+#define enable_uniform2_roughness_lod false //@
+#define uniform2_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_uniform3 false //@
+#define enable_uniform3_mul_color false //@
+#define enable_uniform3_mul_vtxcolor false //@
+#define enable_uniform3_roughness_lod false //@
+#define uniform3_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_uniform4 false //@
+#define enable_uniform4_mul_color false //@
+#define enable_uniform4_mul_vtxcolor false //@
+#define enable_uniform4_roughness_lod false //@
+#define uniform4_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define enable_proc_texture_2d false //@
+#define enable_proc_texture_2d_mul_color false //@
+#define enable_proc_texture_2d_mul_vtxcolor false //@
+#define enable_proc_texture_2d_roughness_lod false //@
+#define proc_texture_2d_fuv_selector 10 //@ choices="10 11 12 13 20 21 30 50 51 52 53"
+#define proc_texture_2d_component 0 //@ choices="0 30 40 50 60 70 80 90 100"
+#define enable_proc_texture_3d false //@
+#define enable_proc_texture_3d_mul_color false //@
+#define enable_proc_texture_3d_mul_vtxcolor false //@
+#define enable_proc_texture_3d_roughness_lod false //@
+#define proc_texture_3d_fuv_selector 60 //@ choices="60 61"
+#define proc_texture_3d_fuv_offset 0 //@ choices="0 60 61 62 63"
+#define proc_texture_3d_component 0 //@ choices="0 30 70"
+#define enable_indirect0 false //@
+#define indirect0_src_map 50 //@ choices="50 51 52 53 54 80 81 82 83 84 85 140"
+#define indirect0_tgt_uv 10 //@ choices="10 11 12 13"
+#define enable_indirect1 false //@
+#define indirect1_src_map 50 //@ choices="50 51 52 53 54 80 81 82 83 84 85 140"
+#define indirect1_tgt_uv 10 //@ choices="10 11 12 13"
+#define enable_blend0 false //@
+#define blend0_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 100 101 115 116 160 170"
+#define blend0_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend0_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 100 101 115 116 160 170"
+#define blend0_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend0_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend0_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend0_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend0_post 0 //@ choices="0 10 20 30 40 50"
+#define blend0_cof_map 50 //@ choices="10 50 51 52 53 54 160 170"
+#define blend0_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_blend1 false //@
+#define blend1_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 100 101 115 116 160 170"
+#define blend1_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend1_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 100 101 115 116 160 170"
+#define blend1_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend1_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend1_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend1_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend1_post 0 //@ choices="0 10 20 30 40 50"
+#define blend1_cof_map 50 //@ choices="10 50 51 52 53 54 80 160 170"
+#define blend1_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_blend2 false //@
+#define blend2_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 100 101 115 116 160 170"
+#define blend2_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend2_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 100 101 115 116 160 170"
+#define blend2_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend2_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend2_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend2_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend2_post 0 //@ choices="0 10 20 30 40 50"
+#define blend2_cof_map 50 //@ choices="10 50 51 52 53 54 80 81 160 170"
+#define blend2_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_blend3 false //@
+#define blend3_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 100 101 115 116 160 170"
+#define blend3_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend3_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 100 101 115 116 160 170"
+#define blend3_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend3_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend3_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend3_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend3_post 0 //@ choices="0 10 20 30 40 50"
+#define blend3_cof_map 50 //@ choices="10 50 51 52 53 54 80 81 82 160 170"
+#define blend3_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_blend4 false //@
+#define blend4_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 83 100 101 115 116 160 170"
+#define blend4_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend4_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 83 100 101 115 116 160 170"
+#define blend4_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend4_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend4_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend4_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend4_post 0 //@ choices="0 10 20 30 40 50"
+#define blend4_cof_map 50 //@ choices="10 50 51 52 53 54 80 81 82 160 170"
+#define blend4_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_blend5 false //@
+#define blend5_src 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 83 84 100 101 115 116 160 170"
+#define blend5_src_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend5_dst 10 //@ choices="10 15 20 30 50 51 52 53 54 60 61 62 63 70 71 72 73 74 78 80 81 82 83 84 100 101 115 116 160 170"
+#define blend5_dst_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend5_cof 10 //@ choices="10 20 30 31 32 33 60 61 62 63 115 116"
+#define blend5_cof_ch 10 //@ choices="10 11 20 21 30 31 40 41 50 51"
+#define blend5_eq 0 //@ choices="0 1 2 3 4 5 6 7 8"
+#define blend5_post 0 //@ choices="0 10 20 30 40 50"
+#define blend5_cof_map 50 //@ choices="10 50 51 52 53 54 80 81 82 160 170"
+#define blend5_indirect_map 50 //@ choices="10 20 50 51 52 53 54"
+#define enable_gbuf_fetch_offset false //@
+#define sphere_const_color0 0 //@ choices="0 1 2"
+#define sphere_const_color1 0 //@ choices="0 1 2"
+#define sphere_const_color2 0 //@ choices="0 1 2"
+#define sphere_const_color3 0 //@ choices="0 1 2"
+#define is_apply_irradiance_pixel false //@
+#define is_no_dir_light false //@
+#define is_use_texture_bias false //@
+#define is_use_forward_ggx_specular false //@
+#define enable_material_light true //@
+#define enable_material_sphere_light false //@
+#define enable_fuv0 true //@
+#define enable_fuv1 false //@
+#define enable_fuv2 false //@
+#define enable_fuv3 false //@
+#define fuv0_selector 0 //@ choices="0 1 2 3 10"
+#define fuv1_selector 0 //@ choices="0 1 2 3 10"
+#define fuv2_selector 0 //@ choices="0 1 2 3 10"
+#define fuv3_selector 0 //@ choices="0 1 2 3 10"
+#define fuv0_mtx 0 //@ choices="0 1 2 3 4"
+#define fuv1_mtx 0 //@ choices="0 1 2 3 4"
+#define fuv2_mtx 0 //@ choices="0 1 2 3 4"
+#define fuv3_mtx 0 //@ choices="0 1 2 3 4"
+#define cRenderType 0 //@ choices="0 1 3"
+#define is_render_cubemap false //@
+#define is_use_back_face_lighting false //@
+#define is_use_forward_shadow_buffer false //@
+#define is_use_linear_depth false //@
+#define is_use_decal false //@
+#define vtxcolor_type -1 //@ choices="-1 0 1 2 3"
+#define enable_clamp_lbuf false //@
+#define enable_constant_output false //@
+#define constant_src 10 //@ choices="10 15 50 51 52 53 54 60 61 62 63 80 81 82 83 84 85"
+#define enable_blend_tangent false //@
+#define tangent_blend_cof 15 //@ choices="10 15 50 51 52 53 54"
+#define tangent_blend_component 60 //@ choices="30 40 50 60"
+#define enable_material_lod false //@
+#define enable_lod_roughness_fix false //@
+#define enable_lod_metalness_fix false //@
+#define cSkinWeightNum 0 //@ choices="0 1 2 3 4" is_skin_count="true"
+//-----------------------------------
+//Dynamic Options
+//-----------------------------------
+#define enable_compose_footprint 0 //@ branch="dynamic" choices="0 1 2"
+#define enable_compose_capture false //@ branch="dynamic"
+#define enable_add_stain_proc_texture_3d false //@ branch="dynamic"
+#define compose_prog_texture0 false //@ branch="dynamic"
+#define enable_parallax_cubemap false //@ branch="dynamic"
+#define is_output_motion_vec true //@ branch="dynamic"
+#define material_lod_level false //@ branch="dynamic"
+#define system_id 0 //@ branch="dynamic" choices="0"
+
+// vtxcolor_type
+#define VTX_COLOR_TYPE_NONE -1
+#define VTX_COLOR_TYPE_DIFFUSE 0
+#define VTX_COLOR_TYPE_IRRADIANCE 1
+#define VTX_COLOR_TYPE_EMISSION 2
+#define VTX_COLOR_TYPE_DIFFUSE_BLEND 3
+
+// transparent_type
+#define TRANS_TYPE_CUBEMAP_ROUGHNESS 10 //uses cTexCubeMapRoughness
+#define TRANS_TYPE_IND_FBO 20 //uses cFrameBufferTex
+#define TRANS_TYPE_IND_FBO_DEPTH 25 //uses cFrameBufferTex
+#define TRANS_TYPE_TEX 30 //Multi purpose by transparent_tex_type
+#define TRANS_TYPE_CUBEMAP_GEM0 40 
+#define TRANS_TYPE_CUBEMAP_GEM1 50 
+
+// transparent_tex_type
+#define TRANS_TEX_TYPE_BASE_COLOR 10
+#define TRANS_TEX_TYPE_DIFFUSE 15 //after diffuse pbr calc
+#define TRANS_TEX_TYPE_DIFFUSE_IRRADIANCE 20 //after diffuse pbr calc. Same as diffuse calc, but * irradiance
+#define TRANS_TEX_TYPE_METAL_FLAKE 25
+
+// cRenderType
+#define RENDER_TYPE_DEFERRED_OPAQUE 0
+#define RENDER_TYPE_DEFERRED_XLU 1
+#define RENDER_TYPE_FORWARD 3 //used for translucent types
+
+//The UV layer or method to use
+#define FUV_SELECT_UV0 10
+#define FUV_SELECT_UV1 11
+#define FUV_SELECT_UV2 12
+#define FUV_SELECT_UV3 13
+#define FUV_SELECT_IND0 20
+#define FUV_SELECT_IND1 21
+#define FUV_SELECT_SPHERE 30
+#define FUV_SELECT_PROJ 50
+#define FUV_SELECT_PROJ_MTX0 51 //proj_mtx# from model additional info block
+#define FUV_SELECT_PROJ_MTX1 52
+#define FUV_SELECT_PROJ_MTX2 53
+
+// Custom
+#define DEBUG_VISUALIZER false
+
 const int MAX_BONE_COUNT = 160;
 
 layout (binding = 8, std140) uniform HDRTranslate //@ id="cHdrTranslate" size="16"
@@ -53,7 +334,7 @@ layout (binding = 5, std140) uniform _Shp //@ id="shape" size="64" type="shape"
 layout (binding = 4, std140) uniform MdlMtx //@ id="skel" size="9216" type="skeleton"
 {
     mat3x4 cBoneMatrices[MAX_BONE_COUNT];
-};
+}boneMatrices;
 
 layout (binding = 3, std140) uniform Material //@ id="cMat" type="material"
 {

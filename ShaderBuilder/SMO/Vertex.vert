@@ -1,3 +1,6 @@
+#version 450 core
+
+#include "UniformBlocks.glsl"
 
 #if (BLENDER_RENDER == 0)
 
@@ -41,18 +44,18 @@ vec4 skin(vec3 pos, ivec4 index)
 {
     vec4 newPosition = vec4(pos.xyz, 1.0);
 
-    if (SKIN_COUNT == 0)
+    if (cSkinWeightNum == 0)
         newPosition = vec4(pos, 1.0) * mat4(shape.cTransform);
-    if (SKIN_COUNT == 1)
+    if (cSkinWeightNum == 1)
         newPosition = vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.x]);
 
-    if (SKIN_COUNT >  1)
+    if (cSkinWeightNum >  1)
         newPosition =  vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.x]) * vBoneWeight.x;
-    if (SKIN_COUNT >= 2)
+    if (cSkinWeightNum >= 2)
         newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.y]) * vBoneWeight.y;
-    if (SKIN_COUNT >= 3)
+    if (cSkinWeightNum >= 3)
         newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.z]) * vBoneWeight.z;
-    if (SKIN_COUNT >= 4)
+    if (cSkinWeightNum >= 4)
         newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.w]) * vBoneWeight.w;
         
     return newPosition;
@@ -62,18 +65,18 @@ vec3 skinNormal(vec3 nr, ivec4 index)
 {
     vec3 newNormal = nr;
 
-    if (SKIN_COUNT == 0)
+    if (cSkinWeightNum == 0)
         newNormal =  nr * mat3(shape.cTransform);
-    if (SKIN_COUNT == 1)
+    if (cSkinWeightNum == 1)
         newNormal =  nr * mat3(boneMatrices.cBoneMatrices[index.x]);
 
-    if (SKIN_COUNT >  1)
+    if (cSkinWeightNum >  1)
         newNormal =  nr * mat3(boneMatrices.cBoneMatrices[index.x]) * vBoneWeight.x;
-    if (SKIN_COUNT >= 2)
+    if (cSkinWeightNum >= 2)
         newNormal += nr *  mat3(boneMatrices.cBoneMatrices[index.y]) * vBoneWeight.y;
-    if (SKIN_COUNT >= 3)
+    if (cSkinWeightNum >= 3)
         newNormal += nr * mat3(boneMatrices.cBoneMatrices[index.z]) * vBoneWeight.z;
-    if (SKIN_COUNT >= 4)
+    if (cSkinWeightNum >= 4)
         newNormal += nr * mat3(boneMatrices.cBoneMatrices[index.w]) * vBoneWeight.w;
     
     return newNormal;
@@ -131,53 +134,55 @@ vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
     return vec4(tex.rgb * scale, scale);
 }
 
-vec2 SelectDisplacementTexCoord(int mtx_select, vec3 position)
+vec2 SelectDisplacementTexCoord(int mtx_select, vec3 position, vec4 texCoord01, vec4 texCoord23)
 {
     if (mtx_select == 10)  //tex coord 0
-        return fTexCoords01.xy;
+        return texCoord01.xy;
     else if  (mtx_select == 11) //tex coord 1
-        return fTexCoords01.zy;
+        return texCoord01.zy;
     else if  (mtx_select == 12) //tex coord 2
-        return fTexCoords23.xy;
+        return texCoord23.xy;
     else if  (mtx_select == 13) //tex coord 3
-        return fTexCoords23.zw;
+        return texCoord23.zw;
     else if  (mtx_select == 14) //proj coordinates with y pos
     {
         vec2 proj_pos = (vec4(position, 1.0) * modelInfo.proj_mtx0).xy;
         return proj_pos; //todo confirm if this is right
     }
 
-    return fTexCoords01.xy;
+    return texCoord01.xy;
 }
 
-vec3 CalculateDisplacement0(vec3 position, vec3 normals)
+vec3 CalculateDisplacement0(vec3 position, vec3 normals, vec4 texCoord01, vec4 texCoord23)
 {
-    vec3 tex = textureLod(cTextureDisplacement0, (SelectDisplacementTexCoord(displacement_fuv_selector, position)), 0.0).xyz;
+    vec2 uvs = SelectDisplacementTexCoord(displacement_fuv_selector, position, texCoord01, texCoord23);
+    vec3 tex = textureLod(cTextureDisplacement0, uvs, 0.0).xyz;
 
     vec3 displacement = tex.rgb * mat.displacement_scale * mat.displacement_color.rgb;
     if (displacement_component == 30) //By normals
          displacement = normals.xyz * tex.x * mat.displacement_scale * mat.displacement_color.rgb;
 
-    if (displacement_mul_vtx_color == 1) //Multiply vertex colors
+    if (displacement_mul_vtx_color) //Multiply vertex colors
         displacement *= vColor.rgb;
-    if (displacement_mul_vtx_alpha == 1) //Multiply vertex alpha
+    if (displacement_mul_vtx_alpha) //Multiply vertex alpha
         displacement *= vColor.a;
 
     return position;
 }
 
-vec3 CalculateDisplacement1(vec3 position, vec3 normals)
+vec3 CalculateDisplacement1(vec3 position, vec3 normals, vec4 texCoord01, vec4 texCoord23)
 {
-    vec3 tex = textureLod(cTextureDisplacement1, (SelectDisplacementTexCoord(displacement1_fuv_selector, position)), 0.0).xyz;
+    vec2 uvs = SelectDisplacementTexCoord(displacement_fuv_selector, position, texCoord01, texCoord23);
+    vec3 tex = textureLod(cTextureDisplacement1, uvs, 0.0).xyz;
 
     vec3 displacement = tex.rgb * mat.displacement1_scale * mat.displacement1_color.rgb;
     if (displacement1_component == 30) //By normals
-         displacement = fNormalsDepth.xyz * tex.x * mat.displacement1_scale * mat.displacement1_color.rgb;
+         displacement = normals.xyz * tex.x * mat.displacement1_scale * mat.displacement1_color.rgb;
 
-    if (displacement1_mul_vtx_color == 1) //Multiply vertex colors
-        displacement *= fVertexColor.rgb;
-    if (displacement1_mul_vtx_alpha == 1) //Multiply vertex alpha
-        displacement *= fVertexColor.a;
+    if (displacement1_mul_vtx_color) //Multiply vertex colors
+        displacement *= vColor.rgb;
+    if (displacement1_mul_vtx_alpha) //Multiply vertex alpha
+        displacement *= vColor.a;
 
     return position;
 }
@@ -192,10 +197,16 @@ void main()
     //normals
     fNormalsDepth = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
 
+    //material tex coords
+    fTexCoords01.xy  = get_tex_coord(fuv0_selector, fuv0_mtx, enable_fuv0); 
+    fTexCoords01.zw  = get_tex_coord(fuv1_selector, fuv1_mtx, enable_fuv1); 
+    fTexCoords23.xy  = get_tex_coord(fuv2_selector, fuv2_mtx, enable_fuv2); 
+    fTexCoords23.zw  = get_tex_coord(fuv3_selector, fuv3_mtx, enable_fuv3); 
+
     if (enable_displacement)
-        position.xyz = CalculateDisplacement0(position.xyz, fNormalsDepth.xyz);
+        position.xyz = CalculateDisplacement0(position.xyz, fNormalsDepth.xyz, fTexCoords01, fTexCoords23);
     if (enable_displacement1)
-        position.xyz = CalculateDisplacement1(position.xyz, fNormalsDepth.xyz);
+        position.xyz = CalculateDisplacement1(position.xyz, fNormalsDepth.xyz, fTexCoords01, fTexCoords23);
 
     gl_Position = vec4(position.xyz, 1.0) * mdlEnvView.cViewProj;
 
@@ -225,12 +236,6 @@ void main()
         fBitangents.x = B.y;
         fBitangents.y = B.z;
     }
-
-    //material tex coords
-    fTexCoords01.xy  = get_tex_coord(fuv0_selector, fuv0_mtx, enable_fuv0); 
-    fTexCoords01.zw  = get_tex_coord(fuv1_selector, fuv1_mtx, enable_fuv1); 
-    fTexCoords23.xy  = get_tex_coord(fuv2_selector, fuv2_mtx, enable_fuv2); 
-    fTexCoords23.zw  = get_tex_coord(fuv3_selector, fuv3_mtx, enable_fuv3); 
 
     fVertexColor = vColor;
 

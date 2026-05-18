@@ -85,6 +85,10 @@ namespace ShaderBuilderTool.Convert
             // Compile stages that are used
             // Store compile info for symbol data
             output.CompilerVertex = CompileStage(shaderVariation, args.VertexShader, args, UAMShaderCompiler.Kind.vert);
+            // Early fail check
+            if (output.CompilerVertex == null && !string.IsNullOrEmpty(args.VertexShader))
+                return output;
+
             output.CompilerFragment = CompileStage(shaderVariation, args.FragmentShader, args, UAMShaderCompiler.Kind.frag);
             output.CompilerGeometry = CompileStage(shaderVariation, args.GeometryShader, args, UAMShaderCompiler.Kind.geom);
             output.CompilerCompute = CompileStage(shaderVariation, args.ComputeShader, args, UAMShaderCompiler.Kind.comp);

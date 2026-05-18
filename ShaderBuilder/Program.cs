@@ -113,6 +113,7 @@ namespace ShaderBuilder
                     var config = BfshaCreator.MakeGameConfig(bfsha);
                     var settings2 = new ArgSettings()
                     {
+                        IsWiiU = config.Platform == BfshaCreator.Platforms.WiiU,
                         BfshaSettings = config
                     };
                     settings2.Save($"{bfsha.Name}.json");

@@ -1,3 +1,6 @@
+#version 450 core
+
+#include "UniformBlocks.glsl"
 
 #if (BLENDER_RENDER == 0)
     
@@ -42,16 +45,15 @@ layout (location = 4) out vec4 oMotionVec;
 #endif
 
 
-
 //Variables for setting blend for outputs later
-vec4 BLEND0_OUTPUT;
-vec4 BLEND1_OUTPUT;
-vec4 BLEND2_OUTPUT;
-vec4 BLEND3_OUTPUT;
-vec4 BLEND4_OUTPUT;
-vec4 BLEND5_OUTPUT;
+vec4 BLEND0_OUTPUT= vec4(0.0);
+vec4 BLEND1_OUTPUT= vec4(0.0);
+vec4 BLEND2_OUTPUT= vec4(0.0);
+vec4 BLEND3_OUTPUT= vec4(0.0);
+vec4 BLEND4_OUTPUT= vec4(0.0);
+vec4 BLEND5_OUTPUT= vec4(0.0);
 
-vec4 fIndirectCoords;
+vec4 fIndirectCoords = vec4(0.0);
 
 const float PI = 3.14159265359;
 
@@ -984,7 +986,7 @@ void main()
     {
         //motion vector using the previous position differences
         //Unsure what these are used for?
-        if (enable_motion_vec)
+        if (is_output_motion_vec)
         {
             vec3 posInvProj = vec3(fBitangents.zw, fPreviousPos.w);
             vec3 prevPos = fPreviousPos.xyz;
@@ -1025,7 +1027,7 @@ void main()
     oBaseColor = EncodeBaseColor(saturate(base_color.rgb), roughness, metalness, N);
 
     //Motion vector
-    if (enable_motion_vec)
+    if (is_output_motion_vec)
         oMotionVec.xy = motion_vector.xy;
 
     //Forward render output
