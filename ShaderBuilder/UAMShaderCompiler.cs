@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace ShaderBuilderTool
 {
     /// <summary>
-    /// Represents a shader compiler that will compile nvn shader binaries with the uam tool.
+    /// Represents a shader compiler that will compile Switch nvn shader binaries with the uam tool.
     /// Results in a shader output with byte code, control code, and symbol data.
     /// </summary>
     public class UAMShaderCompiler
@@ -56,7 +56,9 @@ namespace ShaderBuilderTool
                               File.Exists(Path.Combine(_folder, "control.bin"));
             if (!isSuccess || !filesExist)
             {
-                Console.WriteLine($"Failed to compile {shadername}! Will fallback to original shader.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Failed to compile {shadername}!");
+                Console.ResetColor();
                 return new ShaderOutput();
             }
 
@@ -104,7 +106,12 @@ namespace ShaderBuilderTool
             cmd.ErrorDataReceived += (sender, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Console.WriteLine($"");
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Error: {e.Data}");
+                    Console.ResetColor();
+                }
             };
             cmd.Start();
 

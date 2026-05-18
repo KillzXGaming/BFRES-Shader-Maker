@@ -141,12 +141,36 @@ namespace ShaderBuilderTool.Convert
                 }
                 ShaderOptionCreator.SetupOptionKeyFlags(shaderModel);
 
+                // Preprocess the amount of programs we will need to build 
+                List<int[]> keys = new();
+                int total = 0;
+                foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
+                {
+                    foreach (var options in ProcessBranches(intermediateShaderModel, variant.Options))
+                    {
+                        int[] keyTable = BuildKeyData(shaderModel, options);
+                        // Prevent duplicate variants
+                        if (keys.Any(x => x.SequenceEqual(keyTable)))
+                            continue;
+                        keys.Add(keyTable);
+                        total++;
+                    }
+                }
+
+
+                ProgressBar progress = new();
+                Console.Write("Building variations..");
+                bool failed = false;
+
                 List<Tuple<int[], BfshaShaderProgram>> programs = new();
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
                 {
                     // options which can have multiple branched paths
                     foreach (var options in ProcessBranches(intermediateShaderModel, variant.Options))
                     {
+                        if (failed)
+                            continue;
+
                         // Build our unique program key based on the option choices/macros
                         int[] keyTable = BuildKeyData(shaderModel, options);
                         // Prevent duplicate variants
@@ -173,7 +197,12 @@ namespace ShaderBuilderTool.Convert
                         var bnshVariation = BnshCreator.CreateVariation(varArgs);
                         // Failed to compile, skip
                         if (bnshVariation.CompilerVertex == null || bnshVariation.CompilerFragment == null)
-                            continue;
+                        {
+                            failed = true;
+                            break;
+                        }
+
+                        progress.Report((double)programs.Count / (total - 1));
 
                         shaderModel.BnshFile.Variations.Add(bnshVariation.Variation);
                         // Finally make the program data prepared with symbol data for location and binding
@@ -184,10 +213,19 @@ namespace ShaderBuilderTool.Convert
                         programs.Add(Tuple.Create(keyTable, program));
                     }
                 }
-                SortKeys(ref programs);
-                foreach (var prog in programs)
-                    shaderModel.Programs.Add(prog.Item2);
+                progress.Dispose();
+                if (failed)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Failed to build variations!");
+                    Console.ResetColor();
+                    return;
+                }
 
+                Console.WriteLine("\nFinished building variations!");
+                // Sorting is done by bit order
+                SortKeys(ref programs);
+                // Add keys/programs
                 shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
                 foreach (var prog in programs)
                     shaderModel.Programs.Add(prog.Item2);
@@ -198,6 +236,7 @@ namespace ShaderBuilderTool.Convert
         {
             // Wii U needs gsh compile atm
             // There is cemu shader compiler but it has bugs/inaccuracies but may be supported in the future
+            // If a developer wants to support it as it contiues, run https://github.com/Exzap/CafeGLSL
             if (!GSHCompile.IsValid())
                 throw new Exception($"gshCompile.exe not present in folder of the tool!");
 
@@ -225,18 +264,43 @@ namespace ShaderBuilderTool.Convert
                 }
                 ShaderOptionCreator.SetupOptionKeyFlags(shaderModel);
 
-                List<Tuple<int[], BfshaShaderProgram>> programs = new();
+                // Preprocess the amount of programs we will need to build 
+                List<int[]> keys = new();
+                int total = 0;
+                foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
+                {
+                    foreach (var options in ProcessBranches(intermediateShaderModel, variant.Options))
+                    {
+                        int[] keyTable = BuildKeyData(shaderModel, options);
+                        // Prevent duplicate variants
+                        if (keys.Any(x => x.SequenceEqual(keyTable)))
+                            continue;
+                        keys.Add(keyTable);
+                        total++;
+                    }
+                }
 
+                ProgressBar progress = new();
+                Console.Write("Building variations..");
+
+                bool failed = false;
+
+                List<Tuple<int[], BfshaShaderProgram>> programs = new();
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
                 {
                     // options which can have multiple branched paths
                     foreach (var options in ProcessBranches(intermediateShaderModel, variant.Options))
                     {
+                        if (failed)
+                            break; 
+
                         // Build our unique program key based on the option choices/macros
                         int[] keyTable = BuildKeyData(shaderModel, options);
                         // Prevent duplicate variants
                         if (programs.Select(x => x.Item1).Any(x => x.SequenceEqual(keyTable)))
                             continue;
+
+                        progress.Report((double)programs.Count / (total - 1));
 
                         // Source data
                         var vertexShader = Encoding.UTF8.GetString(intermediateShader.VertexShaderSource);
@@ -245,6 +309,8 @@ namespace ShaderBuilderTool.Convert
                         // We need to update source based on the variant macros used
                         // Glsl macros will be different from shader options (ie can use true/false, or strings may be numbers)
                         var macros = GetGlslMacros(intermediateShaderModel, options);
+                        macros.TryAdd("IS_WII_U", "1");
+
                         vertexShader = GlslUtility.ApplyMacros(macros, vertexShader);
                         fragmentShader = GlslUtility.ApplyMacros(macros, fragmentShader);
                         geometryShader = GlslUtility.ApplyMacros(macros, geometryShader);
@@ -252,7 +318,8 @@ namespace ShaderBuilderTool.Convert
                         var gshRaw = GSHCompile.CompileStages(vertexShader, fragmentShader, geometryShader);
                         if (gshRaw.Length == 0)
                         {
-                            continue; // gsh failed
+                            failed = true;
+                            break; // gsh failed
                         }
                         // Build the program data via the gsh file binary
                         var gsh = new GSHFile(new MemoryStream(gshRaw));
@@ -261,10 +328,19 @@ namespace ShaderBuilderTool.Convert
                         BfshaGX2ShaderImporter.Import(shaderModel, program, gsh.Shaders[0], intermediateShaderModel);
                     }
                 }
+
+                progress.Dispose();
+                if (failed)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Failed to build variations!");
+                    Console.ResetColor();
+                    return;
+                }
+
                 SortKeys(ref programs);
                 foreach (var prog in programs)
                     shaderModel.Programs.Add(prog.Item2);
-
                 shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
             }
         }
@@ -272,7 +348,7 @@ namespace ShaderBuilderTool.Convert
         static void SortKeys(ref List<Tuple<int[], BfshaShaderProgram>> programs)
         {
             // Ordered by bit data
-            // This definitely did not take hours of crashes and debugging to notice this is important
+            // This definitely did not take hours of debugging to notice this is important
             programs.Sort((a, b) =>
             {
                 var keyA = a.Item1;
@@ -350,7 +426,7 @@ namespace ShaderBuilderTool.Convert
             }
             foreach (IntermediateShader.OptionMacro dynamicOption in intermediate.DynamicOptions)
             {
-                if (dynamicOption.ID == "gsys_weight" && options.ContainsKey(dynamicOption.ID))
+                if (options.ContainsKey(dynamicOption.ID))
                     glslMacros.TryAdd(dynamicOption.ID, dynamicOption.GetMacroChoice(options[dynamicOption.ID]));
             }
             return glslMacros;
@@ -406,7 +482,7 @@ namespace ShaderBuilderTool.Convert
                 string name = intermediate.GetAttributeSymbolName(shaderModel.Attributes.GetKey(i));
                 program.SetAttribute(i, vertexSymbols.HasAttribute(name));
             }
-
+            /*
             for (int i = 0; i < shaderModel.UniformBlocks.Count; i++)
                 Console.WriteLine($"block {shaderModel.UniformBlocks.GetKey(i)} {program.UniformBlockIndices[i].VertexLocation}");
             for (int i = 0; i < shaderModel.UniformBlocks.Count; i++)
@@ -417,7 +493,7 @@ namespace ShaderBuilderTool.Convert
 
             for (int i = 0; i < shaderModel.Attributes.Count; i++)
                 Console.WriteLine($"attr {shaderModel.Attributes.GetKey(i)} {program.IsAttributeUsed(i)}");
-
+            */
             return program;
         }
 

@@ -101,7 +101,7 @@ namespace ShaderBuilderTool.Convert
                 return null;
 
             var compiled = UAMShaderCompiler.CompileByText(code, kind);
-            if (compiled.ShaderCode.Length == 0) // Failed, return
+            if (compiled.ShaderCode == null) // Failed, return
                 return null;
 
             ControlShader controlCode = new ControlShader(compiled.Control);
