@@ -158,10 +158,10 @@ namespace ShaderBuilderTool.Convert
                 reflect.Inputs.Add(input.name, new ResUint32((uint)input.location));
             foreach (var output in symbols.outputs.Where(x => x.location != -1))
                 reflect.Outputs.Add(output.name, new ResUint32((uint)output.location));
-            foreach (var buffer in symbols.uniformBlocks)
+            foreach (var buffer in symbols.uniformBlocks.Where(x => x.binding != 0))
                 reflect.UniformBuffers.Add(buffer.name, new ResUint32((uint)(buffer.binding - 1)));
-            foreach (var buffer in symbols.storageBlocks)
-                reflect.StorageBuffers.Add(buffer.name, new ResUint32((uint)buffer.binding));
+            foreach (var buffer in symbols.storageBlocks.Where(x => x.binding != 0))
+                reflect.StorageBuffers.Add(buffer.name, new ResUint32((uint)buffer.binding - 1));
             reflect.UpdateSlots();
             return reflect; 
         }

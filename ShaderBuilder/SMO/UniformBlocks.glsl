@@ -258,7 +258,7 @@
 #define enable_compose_capture false //@ branch="dynamic"
 #define enable_add_stain_proc_texture_3d false //@ branch="dynamic"
 #define compose_prog_texture0 false //@ branch="dynamic" flags="compile_all_coices"
-#define enable_parallax_cubemap false //@ branch="dynamic"
+#define enable_parallax_cubemap false //@ branch="dynamic" flags="compile_all_coices"
 #define is_output_motion_vec true //@ branch="dynamic" flags="compile_all_coices"
 #define material_lod_level false //@ branch="dynamic"
 #define system_id 0 //@ branch="dynamic" choices="0"
@@ -307,36 +307,7 @@
 
 const int MAX_BONE_COUNT = 160;
 
-layout (binding = 8, std140) uniform HDRTranslate //@ id="cHdrTranslate" size="16"
-{
-    float Power;
-    float Range;
-}hdr;
-
-layout (binding = 7, std140) uniform ModelAdditionalInfo //@ id="cModelAdditionalInfo" size="496"
-{
-    float model_alpha_mask; //@ 
-    float normal_axis_x_scale; //@ 
-    vec2 uv_offset; //@ 
-    mat4 proj_mtx0; //@ 
-    mat4 proj_mtx1; //@ 
-    mat4 proj_mtx2; //@ 
-    mat4 proj_mtx3; //@ 
-    vec4 prog_constant0; //@ 
-    vec4 prog_constant1; //@ 
-}modelInfo;
-
-layout (binding = 5, std140) uniform _Shp //@ id="shape" size="64" type="shape"
-{
-    mat3x4 cTransform;
-} shape;
-
-layout (binding = 4, std140) uniform MdlMtx //@ id="skel" size="9216" type="skeleton"
-{
-    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
-}boneMatrices;
-
-layout (binding = 3, std140) uniform Material //@ id="cMat" type="material"
+layout (binding = 2, std140) uniform Material //@ id="cMat" type="material"
 {
     vec4 const_color0; //@ default_value="1 1 1 1" group="Constants" type="color"
     vec4 const_color1; //@ default_value="1 1 1 1" group="Constants" type="color"
@@ -399,7 +370,7 @@ layout (binding = 3, std140) uniform Material //@ id="cMat" type="material"
     float material_lod_metalness; //@ default_value="0"
 }mat;
 
-layout (binding = 2, std140) uniform MdlEnvView //@ id="cMdlEnvView" size="4800"
+layout (binding = 1, std140) uniform MdlEnvView //@ id="cMdlEnvView" size="4800"
 {
     mat3x4 cView;
     mat3x4 cViewInv;
@@ -417,3 +388,33 @@ layout (binding = 2, std140) uniform MdlEnvView //@ id="cMdlEnvView" size="4800"
 
     mat4 bayer_mtx;
 } mdlEnvView;
+
+layout (binding = 7, std140) uniform HDRTranslate //@ id="cHdrTranslate" size="16"
+{
+    float Power;
+    float Range;
+}hdr;
+
+layout (binding = 6, std140) uniform ModelAdditionalInfo //@ id="cModelAdditionalInfo" size="496"
+{
+    float model_alpha_mask; //@ 
+    float normal_axis_x_scale; //@ 
+    vec2 uv_offset; //@ 
+    mat4 proj_mtx0; //@ 
+    mat4 proj_mtx1; //@ 
+    mat4 proj_mtx2; //@ 
+    mat4 proj_mtx3; //@ 
+    vec4 prog_constant0; //@ 
+    vec4 prog_constant1; //@ 
+}modelInfo;
+
+layout (binding = 4, std140) uniform _Shp //@ id="shape" size="64" type="shape"
+{
+    mat3x4 cTransform;
+} shape;
+
+layout (binding = 3, std140) uniform MdlMtx //@ id="skel" size="9216" type="skeleton"
+{
+    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
+}boneMatrices;
+

@@ -75,6 +75,12 @@ namespace ShaderBuilderTool
                     File.ReadAllText(Path.Combine(_folder, $"symbols.{kind}.json")));
             }
 
+            foreach (var block in symbols.uniformBlocks)
+            {
+                if (block.stageMask == 0)
+                    block.binding = 0;
+            }
+
             return new ShaderOutput()
             {
                 ShaderCode = shader_bin,
@@ -189,6 +195,7 @@ namespace ShaderBuilderTool
             public int index { get; set; }
             public int binding { get; set; }
             public int size { get; set; }
+            public int stageMask { get; set; }
             public List<UniformSymbol> uniforms { get; set; } = new();
         }
         public class UniformSymbol
