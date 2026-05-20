@@ -6,6 +6,7 @@
 // Github: https://github.com/riidefi/RiiStudio/blob/master/source/szs/
 //
 
+using ShaderBuilder;
 using System;
 using System.Collections;
 using System.IO;

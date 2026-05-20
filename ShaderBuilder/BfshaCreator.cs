@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,6 +28,14 @@ namespace ShaderBuilderTool.Convert
 
             public uint ShaderVersionMajor = 1;
             public uint ShaderVersionMinor = 5;
+
+            // For sharing stage data from existing bfsha
+            public string SharedStageBfsha;
+            public int SharedVertexStageProgramIndex = -1;
+            public int SharedPixelStageProgramIndex = -1;
+
+            // Adds more variants with option overrides.
+            public List<Dictionary<string, string>> OptionOverrides = new();
 
             // Variant options that compile shader programs based on macro choices
             [JsonIgnore]
@@ -76,6 +85,15 @@ namespace ShaderBuilderTool.Convert
                 args.BnshVersionMajor = bfsha.ShaderModels[0].BnshFile.BinHeader.VersionMajor;
                 args.BnshVersionMinor = bfsha.ShaderModels[0].BnshFile.BinHeader.VersionMinor;
                 args.BnshVersionMicro = bfsha.ShaderModels[0].BnshFile.BinHeader.VersionMicro;
+                if (bfsha.ShaderModels[0].BnshFile.Variations.Count > 0)
+                {
+                    // Not used atm but this could be used for matching versions
+                    // Games should support 1.5 and newer versions are not well documented
+                    var variation = bfsha.ShaderModels[0].BnshFile.Variations[0].BinaryProgram.VertexShader;
+                    var ctrlShader = new ControlShader(variation.ControlCode);
+                  //  args.ShaderVersionMajor = ctrlShader.MajorVer;
+                  //  args.ShaderVersionMinor = ctrlShader.MinorVer;
+                }
             }
             return args;
         }
@@ -97,19 +115,41 @@ namespace ShaderBuilderTool.Convert
                 intermediateShader.CreateBfshaFileWiiU() :
                 intermediateShader.CreateBfshaFileSwitch();
 
+            var sharedBfsha = new BfshaFile();
+            if (!string.IsNullOrEmpty(args.SharedStageBfsha) && File.Exists(args.SharedStageBfsha))
+                sharedBfsha = new BfshaFile(args.SharedStageBfsha);
+
             bfsha.BinHeader.VersionMajor = args.VersionMajor;
             bfsha.BinHeader.VersionMicro = args.VersionMicro;
             bfsha.BinHeader.VersionMinor = args.VersionMinor;
 
+            if (bfsha.BinHeader.VersionMajor >= 7)
+            {
+                // Remap indices
+                foreach (var shaderModel in bfsha.ShaderModels.Values)
+                {
+                    //material, shape, skeleton, option block indices
+                    var mat_idx = shaderModel.BlockIndices[0];
+                    var shp_idx = shaderModel.BlockIndices[1];
+                    var skel_idx = shaderModel.BlockIndices[2];
+                    var opt_idx = shaderModel.BlockIndices[3];
+                    // shape, skeleton, mat, option
+                    shaderModel.BlockIndices[0] = shp_idx;
+                    shaderModel.BlockIndices[1] = skel_idx;
+                    shaderModel.BlockIndices[2] = mat_idx;
+                    shaderModel.BlockIndices[3] = opt_idx;
+                }
+            }
+
             if (args.Platform == Platforms.WiiU)
-                CreateWiiU(bfsha, intermediateShader, args);
+                CreateWiiU(bfsha, intermediateShader, args, sharedBfsha);
             else
-                CreateSwitch(bfsha, intermediateShader, args);
+                CreateSwitch(bfsha, intermediateShader, args, sharedBfsha);
 
             return bfsha;
         }
 
-        static void CreateSwitch(BfshaFile bfsha,  IntermediateShader intermediateShader, Args args)
+        static void CreateSwitch(BfshaFile bfsha,  IntermediateShader intermediateShader, Args args, BfshaFile sharedBfsha)
         {
             // Load variation data
             foreach (var shaderModel in bfsha.ShaderModels.Values)
@@ -195,6 +235,25 @@ namespace ShaderBuilderTool.Convert
                         varArgs.ComputeShader = GlslUtility.ApplyMacros(macros, varArgs.ComputeShader);
                         // Build the bnsh variant and binary nvn data and store it
                         var bnshVariation = BnshCreator.CreateVariation(varArgs);
+                        if (args.SharedVertexStageProgramIndex != -1 && sharedBfsha.ShaderModels.Count > 0)
+                        {
+                            ControlShader controlCode = new ControlShader(bnshVariation.Variation.BinaryProgram.VertexShader.ControlCode);
+                            var sharedVar = sharedBfsha.ShaderModels[0].Programs[args.SharedVertexStageProgramIndex].VariationIndex;
+                            var binprog = sharedBfsha.ShaderModels[0].BnshFile.Variations[sharedVar].BinaryProgram;
+
+                            bnshVariation.Variation.BinaryProgram.VertexShader.ByteCode = binprog.VertexShader.ByteCode;
+
+                            controlCode.ProgramSize = (uint)(binprog.VertexShader.ByteCode.Length - 240);
+                        }
+                        if (args.SharedPixelStageProgramIndex != -1 && sharedBfsha.ShaderModels.Count > 0)
+                        {
+                            var sharedVar = sharedBfsha.ShaderModels[0].Programs[args.SharedPixelStageProgramIndex].VariationIndex;
+                            var binprog = sharedBfsha.ShaderModels[0].BnshFile.Variations[sharedVar].BinaryProgram;
+
+                            bnshVariation.Variation.BinaryProgram.FragmentShader = binprog.FragmentShader;
+                            bnshVariation.Variation.BinaryProgram.FragmentShaderReflection = binprog.FragmentShaderReflection;
+                        }
+
                         // Failed to compile, skip
                         if (bnshVariation.CompilerVertex == null || bnshVariation.CompilerFragment == null)
                         {
@@ -232,7 +291,7 @@ namespace ShaderBuilderTool.Convert
             }
         }
 
-        static void CreateWiiU(BfshaFile bfsha, IntermediateShader intermediateShader, Args args)
+        static void CreateWiiU(BfshaFile bfsha, IntermediateShader intermediateShader, Args args, BfshaFile sharedBfsha)
         {
             // Wii U needs gsh compile atm
             // There is cemu shader compiler but it has bugs/inaccuracies but may be supported in the future

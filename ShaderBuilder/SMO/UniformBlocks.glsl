@@ -307,7 +307,12 @@
 
 const int MAX_BONE_COUNT = 160;
 
-layout (binding = 2, std140) uniform Material //@ id="cMat" type="material"
+layout(std140, binding = 10)  uniform cShaderOption //@ id="cShaderOption" size="0" type="option"
+{
+  vec4 data[4096];
+}shaderoption;
+
+layout(std140, binding = 2)  uniform cMat //@ id="cMat" size="656" type="material"
 {
     vec4 const_color0; //@ default_value="1 1 1 1" group="Constants" type="color"
     vec4 const_color1; //@ default_value="1 1 1 1" group="Constants" type="color"
@@ -370,7 +375,20 @@ layout (binding = 2, std140) uniform Material //@ id="cMat" type="material"
     float material_lod_metalness; //@ default_value="0"
 }mat;
 
-layout (binding = 1, std140) uniform MdlEnvView //@ id="cMdlEnvView" size="4800"
+layout(std140, binding = 6)  uniform cModelAdditionalInfo //@ id="cModelAdditionalInfo" size="496"
+{
+    float model_alpha_mask; //@ 
+    float normal_axis_x_scale; //@ 
+    vec2 uv_offset; //@ 
+    mat4 proj_mtx0; //@ 
+    mat4 proj_mtx1; //@ 
+    mat4 proj_mtx2; //@ 
+    mat4 proj_mtx3; //@ 
+    vec4 prog_constant0; //@ 
+    vec4 prog_constant1; //@ 
+}modelInfo;
+
+layout(std140, binding = 1)  uniform cMdlEnvView //@ id="cMdlEnvView" size="4800"
 {
     mat3x4 cView;
     mat3x4 cViewInv;
@@ -389,32 +407,44 @@ layout (binding = 1, std140) uniform MdlEnvView //@ id="cMdlEnvView" size="4800"
     mat4 bayer_mtx;
 } mdlEnvView;
 
-layout (binding = 7, std140) uniform HDRTranslate //@ id="cHdrTranslate" size="16"
+layout(std140, binding = 4)  uniform cStaticDepthShadow //@ id="cStaticDepthShadow" size="224"
+{
+  vec4 data[4096];
+}staticdepthshadow;
+
+layout(std140, binding = 7)  uniform cHdrTranslate //@ id="cHdrTranslate" size="16"
 {
     float Power;
     float Range;
 }hdr;
 
-layout (binding = 6, std140) uniform ModelAdditionalInfo //@ id="cModelAdditionalInfo" size="496"
+layout(std140, binding = 5)  uniform cDepthShadow //@ id="cDepthShadow" size="288"
 {
-    float model_alpha_mask; //@ 
-    float normal_axis_x_scale; //@ 
-    vec2 uv_offset; //@ 
-    mat4 proj_mtx0; //@ 
-    mat4 proj_mtx1; //@ 
-    mat4 proj_mtx2; //@ 
-    mat4 proj_mtx3; //@ 
-    vec4 prog_constant0; //@ 
-    vec4 prog_constant1; //@ 
-}modelInfo;
+  vec4 data[4096];
+}depthshadow;
 
-layout (binding = 4, std140) uniform _Shp //@ id="shape" size="64" type="shape"
+layout(std140, binding = 3)  uniform Skel //@ id="skel" size="9216" type="skeleton"
+{
+    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
+}boneMatrices;
+
+layout(std140, binding = 6)  uniform Skel_prev //@ id="skel_prev" size="9216"
+{
+    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
+}skel_prev;
+
+layout(std140, binding = 4)  uniform Shape //@ id="shape" size="64" type="shape"
 {
     mat3x4 cTransform;
 } shape;
 
-layout (binding = 3, std140) uniform MdlMtx //@ id="skel" size="9216" type="skeleton"
+layout(std140, binding = 8)  uniform Shape_prev //@ id="shape_prev" size="64"
 {
-    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
-}boneMatrices;
+    mat3x4 cTransform;
+}shape_prev;
+
+layout(std140, binding = 9)  uniform cLightEnv //@ id="cLightEnv" size="32"
+{
+  vec4 data[4096];
+}lightenv;
 

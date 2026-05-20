@@ -57,10 +57,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Szs\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="Syroot.BinaryData">
       <HintPath>..\BfresLibrary\Libraries\Syroot.BinaryData.dll</HintPath>
     </Reference>

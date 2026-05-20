@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static BlenderBfresConverter.BlenderXml;
 
 namespace ShaderBuilder
 {
@@ -48,6 +49,35 @@ namespace ShaderBuilder
                     macro = $"{macro} choices=\"{string.Join(" ", option.Choices.Keys)}\"";
                 wr.WriteLine(macro);
             }
+
+            wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_blocks.txt"));
+            foreach (var block in shader.UniformBlocks)
+            {
+                string comment = $"//@ id=\"{block.Key}\" size=\"{block.Value.Size}\"";
+                if (block.Value.Type == BfshaUniformBlock.BlockType.Shape) comment += " type=\"shape\"";
+                if (block.Value.Type == BfshaUniformBlock.BlockType.Material) comment += " type=\"material\"";
+                if (block.Value.Type == BfshaUniformBlock.BlockType.Option) comment += " type=\"skeleton\"";
+                if (block.Value.Type == BfshaUniformBlock.BlockType.Num) comment += " type=\"option\"";
+
+                Console.WriteLine((int)block.Value.Type + " " + block.Key);
+
+                wr.WriteLine($"layout(std140, binding = {block.Value.Index})  uniform {block.Key} {comment}");
+                wr.WriteLine("{");
+                wr.WriteLine("  vec4 data[4096];");
+                wr.WriteLine("}" + block.Key.ToLower() + ";");
+            }
+            wr.Close();
+
+
+            wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_attributes.txt"));
+            foreach (var attr in shader.Attributes)
+                wr.WriteLine($"layout (location = {attr.Value.Index}) in vec3 a{attr.Key}; //@ id=\"{attr.Key}\"");
+            wr.Close();
+
+            wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_samplers.txt"));
+            foreach (var attr in shader.Samplers)
+                wr.WriteLine($"layout (binding = {attr.Value.Index}) uniform sampler2D sampler{attr.Key}; //@ id=\"{attr.Key}\"");
+            wr.Close();
         }
     }
 }

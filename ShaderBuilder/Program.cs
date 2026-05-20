@@ -9,10 +9,9 @@ using ShaderBuilderTool.Convert;
 using ShaderLibrary;
 using ShaderLibrary.IO;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
-using static ShaderBuilder.Program;
-using static ShaderLibrary.ControlShader;
 
 namespace ShaderBuilder
 {
@@ -31,9 +30,13 @@ namespace ShaderBuilder
             /// </summary>
             public string BfresFolder { get; set; } = "Bfres";
             /// <summary>
-            /// The output folder of the adjusted bfres files and bfsha (if not embedded).
+            /// The output shader folder of the adjusted bfsha (if not embedded).
             /// </summary>
-            public string OutputFolder { get; set; } = "Output";
+            public string OutputShaderFolder { get; set; } = "Output";
+            /// <summary>
+            /// The output bfres folder of the adjusted bfres files.
+            /// </summary>
+            public string OutputBfresFolder { get; set; } = "Output";
             /// <summary>
             /// Determines if shader is embedded into the bfres.
             /// </summary>
@@ -46,6 +49,10 @@ namespace ShaderBuilder
             /// Determines to make a new sarc to store the bfsha shader.
             /// </summary>
             public bool ShaderSarc { get; set; } = false;
+            /// <summary>
+            /// The compression speed to compress the file data. 1 for fastest, 9 for slowest but smallest.
+            /// </summary>
+            public int Yaz0Level { get; set; } = 3;
             /// <summary>
             /// Bfsha settings and shader creation info.
             /// </summary>
@@ -75,7 +82,7 @@ namespace ShaderBuilder
                 var saved = SARC_Parser.PackN(Sarc);
                 var bytes = saved.Item2;
                 if (IsCompressed)
-                    bytes = szs.Encode(saved.Item2, szs.CompressionAlgorithm.MK8, (uint)saved.Item1);
+                    bytes = YAZ0.Compress(saved.Item2, 3, (uint)saved.Item1);
                 File.WriteAllBytes(this.OutputFilePath, bytes);
             }
         }
@@ -89,7 +96,7 @@ namespace ShaderBuilder
             public SarcData Archive;
             public string ArchiveFileName;
 
-            public void Save()
+            public void Save(int yaz0Level)
             {
                 if (Archive != null) // .sarc (save just bfres to archive)
                 {
@@ -104,10 +111,15 @@ namespace ShaderBuilder
                     {
                         MemoryStream mem = new MemoryStream();
                         this.ResFile.Save(mem);
-                        byte[] bytes = szs.Encode(mem.ToArray(), szs.CompressionAlgorithm.MK8);
+
+                        Stopwatch sw = Stopwatch.StartNew();
+                        Console.WriteLine($"Compressing Yaz0 level {yaz0Level}");
+
+                        byte[] bytes = YAZ0.Compress(mem.ToArray(), yaz0Level);
                         File.WriteAllBytes(this.OutputFilePath, bytes);
 
-                        ResFile.Save(this.OutputFilePath + ".bfsha");
+                        sw.Stop();
+                        Console.WriteLine($"Compressed in {sw.Elapsed}");
                     }
                     else
                         this.ResFile.Save(this.OutputFilePath);
@@ -117,8 +129,6 @@ namespace ShaderBuilder
 
         public static void Main(string[] args)
         {
-            // args = new[] { "-e", @"E:\0 BACKUP 11 4 2025\yuzu\mk8 proto\TestProto\romfs\Driver\Turbo_UBEROG.bfsha" };
-
             ArgSettings settings = ArgSettings.Load();
             // Settings override
             if (args.Any(x => x.Contains(".json")))
@@ -133,70 +143,16 @@ namespace ShaderBuilder
                 settings.BfshaSettings.Platform = BfshaCreator.Platforms.WiiU;
 
             // Extract attempt which is expecting a drag/drop of a bfres or bfsha.
-            foreach (var arg in args)
-            {
-                // Dumpable materials that user can edit to inject back to
-                if (arg.EndsWith(".bfres") || arg.EndsWith(".szs") || arg.EndsWith(".sbfres"))
-                {
-                    ResFile resFile = new ResFile();
-                    // Check for compression
-                    Stream stream = File.OpenRead(arg);
-                    if (YAZ0.IsCompressed(stream))
-                    {
-                        stream?.Close();
-                        stream = new MemoryStream(YAZ0.Decompress(File.ReadAllBytes(arg)));
-                    }
-                    if (SARC_Parser.IsSarc(stream))
-                    {
-                        var sarc = SARC_Parser.UnpackRamN(stream);
-                        foreach (var f in sarc.Files)
-                        {
-                            if (f.Key.EndsWith(".bfres"))
-                            {
-                                resFile = new ResFile(new MemoryStream(f.Value));
-                                break;
-                            }
-                        }
-                    }
-                    else if (IsBfres(stream))
-                        resFile = new ResFile(stream);
-
-                    foreach (var model in resFile.Models.Values)
-                    {
-                        // Bfres name -> model name
-                        // Users can add new materials or inject the existing
-                        string dir = Path.Combine(settings.BfresFolder, Path.GetFileNameWithoutExtension(arg), model.Name);
-                        Directory.CreateDirectory(dir);
-
-                        foreach (var mat in model.Materials.Values)
-                            mat.Export(Path.Combine(dir, $"{mat.Name}.json"), resFile);
-                    }
-                    return;
-                }
-                if (arg.EndsWith(".bfsha"))
-                {
-                    BfshaFile bfsha = new BfshaFile(arg);
-                    var config = BfshaCreator.MakeGameConfig(bfsha);
-                    var settings2 = new ArgSettings()
-                    {
-                        IsWiiU = config.Platform == BfshaCreator.Platforms.WiiU,
-                        BfshaSettings = config
-                    };
-                    settings2.Save($"{bfsha.Name}.json");
-
-                    Directory.CreateDirectory(Path.Combine("Extracted", bfsha.Name));
-                    foreach (var model in bfsha.ShaderModels.Values)
-                        ShaderMetadata.DumpMetaData(model, Path.Combine("Extracted", bfsha.Name));
-                    return;
-                }
-            }
+            if (ExtractFiles(args, settings))
+                return;
 
             if (!Directory.Exists(settings.ShaderFolder))
                 throw new Exception($"Failed to find shader folder {settings.ShaderFolder}.");
             if (!Directory.Exists(settings.BfresFolder))
                 throw new Exception($"Failed to find bfres folder {settings.BfresFolder}.");
 
-            Directory.CreateDirectory(settings.OutputFolder);
+            Directory.CreateDirectory(settings.OutputShaderFolder);
+            Directory.CreateDirectory(settings.OutputBfresFolder);
 
             List<BfresFile> bfresFiles = new();
 
@@ -212,7 +168,7 @@ namespace ShaderBuilder
             foreach (var file in Directory.GetFiles(settings.BfresFolder, "*", SearchOption.AllDirectories))
             {
                 string subDir = Path.GetRelativePath(settings.BfresFolder, Path.GetDirectoryName(file));
-                string outputFilePath = Path.Combine(settings.OutputFolder, subDir, Path.GetFileName(file));
+                string outputFilePath = Path.Combine(settings.OutputBfresFolder, subDir, Path.GetFileName(file));
                 bool isCompressed = false;
 
                 try
@@ -256,7 +212,7 @@ namespace ShaderBuilder
                             FilePath = file,
                             IsCompressed = isCompressed,
                             OutputFilePath = outputFilePath,
-                            ResFile = new ResFile(file),
+                            ResFile = new ResFile(stream),
                         });
                     }
                     else // Not a valid bfres, skip
@@ -328,7 +284,7 @@ namespace ShaderBuilder
                         Name = bfsha.Name + ".bfsha",
                         Data = bfsha_mem.ToArray(),
                     });
-                    bfres.Save();
+                    bfres.Save(settings.Yaz0Level);
                 }
             }
 
@@ -351,14 +307,14 @@ namespace ShaderBuilder
                     sarc.Files.Add(bfsha.Name + ".bfsha", mem.ToArray());
                     var saved = SARC_Parser.PackN(sarc);
                     // Default to compressed
-                    var compressed = szs.Encode(saved.Item2, szs.CompressionAlgorithm.MK8, (uint)saved.Item1);
-                    File.WriteAllBytes(Path.Combine(settings.OutputFolder, $"{bfsha.Name}.szs"), compressed);
+                    var compressed = YAZ0.Compress(saved.Item2, settings.Yaz0Level, (uint)saved.Item1);
+                    File.WriteAllBytes(Path.Combine(settings.OutputShaderFolder, $"{bfsha.Name}.szs"), compressed);
                 }
                 else
-                    bfsha.Save(Path.Combine(settings.OutputFolder, bfsha.Name + ".bfsha"));
+                    bfsha.Save(Path.Combine(settings.OutputShaderFolder, bfsha.Name + ".bfsha"));
                 // Save each bfres
                 foreach (var bfres in bfresFiles)
-                    bfres.Save();
+                    bfres.Save(settings.Yaz0Level);
             }
 
             // Save each archive if loaded
@@ -366,6 +322,68 @@ namespace ShaderBuilder
             {
                 archive.Save();
             }
+        }
+
+        static bool ExtractFiles(string[] args, ArgSettings settings)
+        {
+            foreach (var arg in args)
+            {
+                // Dumpable materials that user can edit to inject back to
+                if (arg.EndsWith(".bfres") || arg.EndsWith(".szs") || arg.EndsWith(".sbfres"))
+                {
+                    void DumpResFile(ResFile resFile)
+                    {
+                        foreach (var model in resFile.Models.Values)
+                        {
+                            // Bfres name -> model name
+                            // Users can add new materials or inject the existing
+                            string dir = Path.Combine(settings.BfresFolder, Path.GetFileNameWithoutExtension(arg), model.Name);
+                            Directory.CreateDirectory(dir);
+
+                            foreach (var mat in model.Materials.Values)
+                                mat.Export(Path.Combine(dir, $"{mat.Name}.json"), resFile);
+                        }
+                    }
+                    // Check for compression
+                    Stream stream = File.OpenRead(arg);
+                    if (YAZ0.IsCompressed(stream))
+                    {
+                        stream?.Close();
+                        stream = new MemoryStream(YAZ0.Decompress(File.ReadAllBytes(arg)));
+                    }
+                    if (SARC_Parser.IsSarc(stream))
+                    {
+                        var sarc = SARC_Parser.UnpackRamN(stream);
+                        foreach (var f in sarc.Files)
+                        {
+                            if (f.Key.EndsWith(".bfres"))
+                                DumpResFile(new ResFile(new MemoryStream(f.Value)));
+                        }
+                    }
+                    else if (IsBfres(stream))
+                        DumpResFile(new ResFile(stream));
+
+                    return true;
+                }
+                // Dumpable shaders for referencing settings and meta data for creating glsl code
+                if (arg.EndsWith(".bfsha"))
+                {
+                    BfshaFile bfsha = new BfshaFile(arg);
+                    var config = BfshaCreator.MakeGameConfig(bfsha);
+                    var settings2 = new ArgSettings()
+                    {
+                        IsWiiU = config.Platform == BfshaCreator.Platforms.WiiU,
+                        BfshaSettings = config
+                    };
+                    Directory.CreateDirectory(Path.Combine("Extracted", bfsha.Name));
+                    settings2.Save(Path.Combine("Extracted", bfsha.Name, $"{bfsha.Name}Settings.json"));
+
+                    foreach (var model in bfsha.ShaderModels.Values)
+                        ShaderMetadata.DumpMetaData(model, Path.Combine("Extracted", bfsha.Name));
+                    return true;
+                }
+            }
+            return false;
         }
 
         static bool IsBfres(Stream stream)
@@ -386,7 +404,14 @@ namespace ShaderBuilder
                 foreach (Shape shape in model.Shapes.Values)
                 {
                     Material material = model.Materials[(int)shape.MaterialIndex];
-                    SetupMaterial(args, material, shape.VertexSkinCount, intermediateShader);
+                    // Option overrides which will compile more variants based on user specified settings
+                    if (args.OptionOverrides.Count > 0)
+                    {
+                        foreach (var dict in args.OptionOverrides)
+                            SetupMaterial(args, material, shape.VertexSkinCount, intermediateShader, dict);
+                    }
+                    else
+                        SetupMaterial(args, material, shape.VertexSkinCount, intermediateShader, new Dictionary<string, string>());
                 }
                 // Check for unassigned materials
                 // The game materials shouldn't do this but custom models could sometimes have loose materials that may cause errors if the user reassigns after
@@ -399,13 +424,14 @@ namespace ShaderBuilder
 
                     // Add a variant to all usable skin counts if the user decides to reassign the material to either mesh
                     for (int i = 0; i < skin_counts.Count; i++)
-                        SetupMaterial(args, mat, skin_counts[i], intermediateShader);
+                        SetupMaterial(args, mat, skin_counts[i], intermediateShader, new Dictionary<string, string>());
                 }
             }
             return BfshaCreator.Create(intermediateShader, args);
         }
 
-        static void SetupMaterial(BfshaCreator.Args args, Material material, int skinCount, IntermediateShader intermediateShader)
+        static void SetupMaterial(BfshaCreator.Args args, Material material, int skinCount, IntermediateShader intermediateShader,
+            Dictionary<string, string> optionOverrides)
         {
             IntermediateShader.ShaderModelInfo shaderModel = intermediateShader.ShaderModels[0];
             BfshaCreator.Variant variant = new BfshaCreator.Variant();
@@ -437,6 +463,8 @@ namespace ShaderBuilder
                         string renderInfoChoice = material.GetRenderInfoString(optionMacro.RenderInfo);
                         str = optionMacro.GetMacroChoiceByRenderInfo(renderInfoChoice);
                     }
+                    if (optionOverrides.ContainsKey(shaderOption.Key))
+                        str = optionOverrides[shaderOption.Key];
 
                     // V10 using boolean but bfsha still need 0/1
                     if ((string)shaderOption.Value == "True")
