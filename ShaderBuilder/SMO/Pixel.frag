@@ -1048,8 +1048,15 @@ void main()
         oBaseColor.a = alpha; 
     }
 
-  //  oLightBuf.rgb = vec3(1.0, 1.0, 0.0) * 50.0;
-   // oBaseColor.rgb = vec3(1.0, 1.0, 0.0);
+    //oLightBuf.rgb = vec3(1.0, 1.0, 0.0) * 50.0;
+    //oBaseColor.rgb = vec3(1.0, 1.0, 0.0);
+    //oLightBuf.a = 1.0;
+    //oBaseColor.a = 1.0;
+
+    oLightBuf.rgb *= vec3(1.0, 0, 0);
+    oBaseColor.rgb *= vec3(1.0, 0, 0);
+
+  //  gl_FragDepth = gl_FragCoord.z * 0.9989999;
 
     if (DEBUG_VISUALIZER)
     {
