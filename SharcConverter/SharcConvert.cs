@@ -81,6 +81,19 @@ namespace ShaderBuilder
 
         }
 
+        public enum CompileStage
+        {
+            Vertex,
+            Fragment,
+            Geometry,
+        }
+
+        public enum CompilePlatform
+        {
+            NX,
+            WiiU,
+        }
+
         public static void ExportSource(SharcFile sharc)
         {
             Directory.CreateDirectory(sharc.Name);
@@ -271,22 +284,39 @@ namespace ShaderBuilder
 
             foreach (var prog in sharc.Programs)
             {
-                var sharcfbProj = new SharcfbFile.ShaderProgram();
-                sharcfbProj.Name = prog.Name;
-                sharcfb.Programs.Add(sharcfbProj);
-                sharcfbProj.BaseIndex = sharcfb.Variations.Count;
+                var sharcfbProg = new SharcfbFile.ShaderProgram();
+                sharcfbProg.Name = prog.Name;
+                sharcfb.Programs.Add(sharcfbProg);
+                sharcfbProg.BaseIndex = sharcfb.Variations.Count;
 
                 string vertexShader = sharc.Sources[prog.VertexShaderIndex].GetCode();
                 string fragShader = sharc.Sources[prog.FragmentShaderIndex].GetCode();
+                string geomShader = prog.GeoemetryShaderIndex == -1 ? "" : sharc.Sources[prog.GeoemetryShaderIndex].GetCode();
+
                 vertexShader = ProcessIncludes(vertexShader, sharc);
                 fragShader = ProcessIncludes(fragShader, sharc);
-                vertexShader = CompileSource(vertexShader, 0, 0);
-                fragShader = CompileSource(fragShader, 1, 0);
+                geomShader = ProcessIncludes(geomShader, sharc);
+
+                vertexShader = CompileSource(vertexShader, CompileStage.Vertex, CompilePlatform.NX);
+                fragShader = CompileSource(fragShader, CompileStage.Fragment, CompilePlatform.NX);
+                geomShader = CompileSource(geomShader, CompileStage.Geometry, CompilePlatform.NX);
 
                 string[] sources = new[]
                 {
-                    vertexShader, fragShader
+                    vertexShader, fragShader, geomShader
                 };
+
+                sharcfbProg.Kind = 0;
+                // Has vertex
+                if (!string.IsNullOrEmpty(vertexShader))
+                    sharcfbProg.Kind |= 1;
+                // Has pixel
+                if (!string.IsNullOrEmpty(fragShader))
+                    sharcfbProg.Kind |= 2;
+                // Has geometry
+                if (!string.IsNullOrEmpty(geomShader))
+                    sharcfbProg.Kind |= 4;
+
                 List<SharcFile.MacroDefine>[] defines = new[]
                 {
                     prog.VertexMacros , prog.FragmentMacros
@@ -295,10 +325,11 @@ namespace ShaderBuilder
                 {
                     SharcfbFile.ShaderType.Vertex,
                     SharcfbFile.ShaderType.Pixel,
+                    SharcfbFile.ShaderType.Geometry,
                 };
 
                 foreach (var var in prog.VariationMacros)
-                    sharcfbProj.VariationMacros.Add(var);
+                    sharcfbProg.VariationMacros.Add(var);
 
                 ProgressBar progress = new();
 
@@ -309,7 +340,12 @@ namespace ShaderBuilder
                     // One per stage
                     for (int i = 0; i < stageTypes.Length; i++)
                     {
-                        progress.Report((double)sharcfb.Variations.Count / (allVariationCombinations.Count * 2));
+                        var stageCount = sharcfbProg.HasGeometryShader() ? 3 : 2;
+                        // If empty, stage not used
+                        if (string.IsNullOrEmpty(sources[i]))
+                            continue;
+
+                        progress.Report((double)sharcfb.Variations.Count / (allVariationCombinations.Count * stageCount));
                         var variation = new SharcfbFile.ShaderVariation();
                         foreach (var def in defines[i])
                             macros[def.Name] = def.Value;
@@ -377,7 +413,6 @@ namespace ShaderBuilder
         public static SharcfbFileWiiU ToBinaryWiiU(SharcFile sharc)
         {
             bool failed = false;
-            int platform = 1; // Wii U
             int variant = 0;
 
             SharcfbFileWiiU sharcfb = new();
@@ -399,14 +434,23 @@ namespace ShaderBuilder
 
                 string vertexShader = sharc.Sources[prog.VertexShaderIndex].GetCode();
                 string fragShader = sharc.Sources[prog.FragmentShaderIndex].GetCode();
+                string geomShader = prog.GeoemetryShaderIndex == -1 ? "" : sharc.Sources[prog.GeoemetryShaderIndex].GetCode();
+
                 vertexShader = ProcessIncludes(vertexShader, sharc);
                 fragShader = ProcessIncludes(fragShader, sharc);
-                vertexShader = CompileSource(vertexShader, 0, 0, platform);
-                fragShader = CompileSource(fragShader, 1, 0, platform);
+
+                vertexShader = CompileSource(vertexShader, CompileStage.Vertex, CompilePlatform.WiiU);
+                fragShader = CompileSource(fragShader, CompileStage.Fragment, CompilePlatform.WiiU);
+
+                if (!string.IsNullOrEmpty(geomShader))
+                {
+                    geomShader = ProcessIncludes(geomShader, sharc);
+                    geomShader = CompileSource(geomShader, CompileStage.Geometry, CompilePlatform.WiiU);
+                }
 
                 string[] sources = new[]
                 {
-                    vertexShader, fragShader
+                    vertexShader, fragShader, geomShader
                 };
                 List<SharcFile.MacroDefine>[] defines = new[]
                 {
@@ -416,7 +460,19 @@ namespace ShaderBuilder
                 {
                     SharcfbFileWiiU.GX2ShaderType.Vertex,
                     SharcfbFileWiiU.GX2ShaderType.Pixel,
+                    SharcfbFileWiiU.GX2ShaderType.Geometry,
                 };
+
+                sharcfbProg.Kind = 0;
+                // Has vertex
+                if (!string.IsNullOrEmpty(vertexShader))
+                    sharcfbProg.Kind |= 1;
+                // Has pixel
+                if (!string.IsNullOrEmpty(fragShader))
+                    sharcfbProg.Kind |= 2;
+                // Has geometry
+                if (!string.IsNullOrEmpty(geomShader))
+                    sharcfbProg.Kind |= 4;
 
                 ProgressBar progress = new();
 
@@ -437,8 +493,9 @@ namespace ShaderBuilder
                 {
                     string vertexShaderCode = GSHCompile.CompileMacros(macros, sources[0]);
                     string pixelShaderCode = GSHCompile.CompileMacros(macros, sources[1]);
+                    string geomShaderCode = GSHCompile.CompileMacros(macros, sources[2]);
 
-                    var gshRaw = GSHCompile.CompileStages(vertexShader, fragShader, "");
+                    var gshRaw = GSHCompile.CompileStages(vertexShader, fragShader, geomShaderCode);
                     if (gshRaw.Length == 0)
                     {
                         failed = true;
@@ -489,13 +546,20 @@ namespace ShaderBuilder
                         Type = SharcfbFileWiiU.GX2ShaderType.Pixel,
                     });
 
+                    if (sharcfbProg.HasGeometryShader())
+                        sharcfb.Binaries.Add(new SharcfbFileWiiU.ShaderBinary()
+                        {
+                            Data = gsh.Shaders[0].SavePixelData(),
+                            Type = SharcfbFileWiiU.GX2ShaderType.Geometry,
+                        });
+
                     variant++;
                 }
             }
             return sharcfb;
         }
 
-        static string CompileSource(string text, int type, int location, int platform = 0)
+        static string CompileSource(string text, CompileStage type, CompilePlatform platform = 0)
         {
             // Remove all version data
             string pattern = @"#version.*";
@@ -528,13 +592,12 @@ namespace ShaderBuilder
             };
 
             StringBuilder sb = new();
-            sb.AppendLine(macros[platform]);
+            sb.AppendLine(macros[(int)platform]);
             sb.AppendLine("// ----- These macros are auto defined by AGL.-----");
-            sb.AppendLine(stages[type]);
-            sb.AppendLine(targets[platform]);
+            sb.AppendLine(stages[(int)type]);
+            sb.AppendLine(targets[(int)platform]);
             sb.AppendLine("// ------------------------------------------------");
-            if (location != -1)
-                sb.Append(ConvertLooseUniformsToBlock(text, "RegisterUBO", location));
+            sb.Append(ConvertLooseUniformsToBlock(text, "RegisterUBO", 0));
 
             return sb.ToString();
         }
@@ -609,6 +672,9 @@ namespace ShaderBuilder
                     $"    {type}\t{name};" +
                     $"{(string.IsNullOrWhiteSpace(comment) ? "" : "\t" + comment)}");
             }
+
+            if (blockLines.Count == 0)
+                return "";
 
             string block =
                 $@"layout(std140, binding = {binding}) uniform {blockName}
