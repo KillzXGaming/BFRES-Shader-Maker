@@ -14,7 +14,9 @@ namespace SharcConverter
     {
         public static void Main(string[] args)
         {
-           args = new[] { "alPrepassLight" };
+            SharcFile sharc2 = new("agl_technique_lght.sharc");
+            SharcfbFileWiiU sharc3 = new("UserLight.sharcfb");
+            SharcfbFile sharc4 = new("UserLight.sharcfb");
 
             foreach (var arg in args)
             {

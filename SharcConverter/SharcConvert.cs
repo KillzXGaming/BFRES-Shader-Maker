@@ -255,7 +255,7 @@ namespace ShaderBuilder
 
                 foreach (var var in prog.VariationMacros)
                 {
-                    sharcfbProj.Macros.Add(new SharcfbFile.VariationMacro()
+                    sharcfbProj.VariationMacros.Add(new SharcfbFile.VariationMacro()
                     {
                         Name = var.Name,
                         Values = var.Values,
