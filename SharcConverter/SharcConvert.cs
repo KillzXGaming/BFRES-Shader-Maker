@@ -24,7 +24,6 @@ namespace ShaderBuilder
             public string vertex_shader { get; set; }
             [XmlAttribute]
             public string fragment_shader { get; set; }
-
             [XmlArray("variations")]
             [XmlArrayItem("variation")]
             public List<SharcProgramMacro> macros { get; set; } = new();
@@ -58,6 +57,9 @@ namespace ShaderBuilder
 
         public class SharcMetaData
         {
+            [XmlAttribute]
+            public bool wii_u { get; set; }
+
             [XmlArray("programs")]
             [XmlArrayItem("program")]
             public List<SharcProgramMetaData> Programs { get; set; } = new();
@@ -107,6 +109,7 @@ namespace ShaderBuilder
 
             // Meta data to load sharcfb program data
             SharcMetaData meta = new();
+            meta.wii_u = sharc.FileHeader.ByteOrder == 1;
             foreach (var prog in sharc.Programs)
             {
                 var metaProgram = new SharcProgramMetaData()
@@ -154,6 +157,8 @@ namespace ShaderBuilder
             string metaPath = Path.Combine(folder, "meta.xml");
             if (File.Exists(metaPath))
                 meta = SharcMetaData.FromXml(File.ReadAllText(metaPath));
+
+            sharc.FileHeader.ByteOrder = meta.wii_u ? 1u : 0u;
 
             // Load source files
             foreach (var file in Directory.GetFiles(folder))
@@ -412,6 +417,9 @@ namespace ShaderBuilder
 
         public static SharcfbFileWiiU ToBinaryWiiU(SharcFile sharc)
         {
+            if (!GSHCompile.IsValid())
+                throw new Exception($"gshCompile.exe not present in folder of the tool!");
+
             bool failed = false;
             int variant = 0;
 
@@ -549,7 +557,7 @@ namespace ShaderBuilder
                     if (sharcfbProg.HasGeometryShader())
                         sharcfb.Binaries.Add(new SharcfbFileWiiU.ShaderBinary()
                         {
-                            Data = gsh.Shaders[0].SavePixelData(),
+                            Data = gsh.Shaders[0].SaveGeometryData(),
                             Type = SharcfbFileWiiU.GX2ShaderType.Geometry,
                         });
 
