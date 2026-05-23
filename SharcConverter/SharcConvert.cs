@@ -248,20 +248,22 @@ namespace ShaderBuilder
                 vertexShader = CompileSource(vertexShader, 0, 0);
                 fragShader = CompileSource(fragShader, 1, 0);
 
-                string[] sources = new string[]
+                string[] sources = new[]
                 {
                     vertexShader, fragShader
                 };
+                List<SharcFile.MacroDefine>[] defines = new[]
+                {
+                    prog.VertexMacros , prog.FragmentMacros
+                };
+                SharcfbFile.ShaderType[] stageTypes = new[]
+                {
+                    SharcfbFile.ShaderType.Vertex,
+                    SharcfbFile.ShaderType.Pixel,
+                };
 
                 foreach (var var in prog.VariationMacros)
-                {
-                    sharcfbProj.VariationMacros.Add(new SharcfbFile.VariationMacro()
-                    {
-                        Name = var.Name,
-                        Values = var.Values,
-                        Data = var.Data,
-                    });
-                }
+                    sharcfbProj.VariationMacros.Add(var);
 
                 ProgressBar progress = new();
 
@@ -270,25 +272,23 @@ namespace ShaderBuilder
                 foreach (var macros in allVariationCombinations)
                 {
                     // One per stage
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 0; i < stageTypes.Length; i++)
                     {
                         progress.Report((double)sharcfb.Variations.Count / (allVariationCombinations.Count * 2));
                         var variation = new SharcfbFile.ShaderVariation();
-
-                        var defines = i == 0 ? prog.VertexMacros : prog.FragmentMacros;
-                        foreach (var def in defines)
+                        foreach (var def in defines[i])
                             macros[def.Name] = def.Value;
 
                         var binary = UAMShaderCompiler.CompileByText(sources[i], i + UAMShaderCompiler.Kind.vert, macros);
                         if (binary.ShaderCode == null || binary.Control == null)
                             continue;
 
-                        variation.Type = (SharcfbFile.ShaderType)i;
+                        variation.Type = stageTypes[i];
                         variation.ControlShader = binary.Control;
                         variation.ByteCode = binary.ShaderCode;
                         sharcfb.Variations.Add(variation);
 
-                        if (i == 0) // vertex
+                        if (variation.Type == SharcfbFile.ShaderType.Vertex) // vertex
                         {
                             foreach (var attr in binary.Symbols.inputs.Where(x => x.location != -1))
                             {
