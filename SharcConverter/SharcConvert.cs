@@ -109,7 +109,7 @@ namespace ShaderBuilder
 
             // Meta data to load sharcfb program data
             SharcMetaData meta = new();
-            meta.wii_u = sharc.FileHeader.ByteOrder == 1;
+            meta.wii_u = sharc.FileHeader.Version < 13;
             foreach (var prog in sharc.Programs)
             {
                 var metaProgram = new SharcProgramMetaData()
@@ -158,7 +158,7 @@ namespace ShaderBuilder
             if (File.Exists(metaPath))
                 meta = SharcMetaData.FromXml(File.ReadAllText(metaPath));
 
-            sharc.FileHeader.ByteOrder = meta.wii_u ? 1u : 0u;
+            sharc.FileHeader.Version = meta.wii_u ? 11u : 13u;
 
             // Load source files
             foreach (var file in Directory.GetFiles(folder))

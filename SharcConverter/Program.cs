@@ -24,7 +24,7 @@ namespace SharcConverter
                     Console.WriteLine($"Processing folder {arg}");
 
                     var sharc = SharcConvert.SourceFromFolder(arg);
-                    if (sharc.FileHeader.ByteOrder == 1)
+                    if (sharc.FileHeader.Version < 13)
                     {
                         var sharcfb = SharcConvert.ToBinaryWiiU(sharc);
                         sharcfb.Save($"{sharcfb.Name}.sharcfb");
