@@ -1,6 +1,7 @@
 ﻿using ShaderBuilderTool;
 using ShaderLibrary;
 using ShaderLibrary.Sharc;
+using ShaderLibrary.WiiU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,9 +24,28 @@ namespace ShaderBuilder
             public string vertex_shader { get; set; }
             [XmlAttribute]
             public string fragment_shader { get; set; }
-            [XmlArray("Variations")]
-            [XmlArrayItem("Variation")]
+
+            [XmlArray("variations")]
+            [XmlArrayItem("variation")]
             public List<SharcProgramMacro> macros { get; set; } = new();
+            [XmlArray("uniforms")]
+            [XmlArrayItem("uniforms")]
+            public List<SharcFile.Symbol> Uniforms { get; set; } = new();
+            [XmlArray("uniform_blocks")]
+            [XmlArrayItem("uniform_block")]
+            public List<SharcFile.Symbol> UniformBlocks { get; set; } = new();
+            [XmlArray("attributes")]
+            [XmlArrayItem("attribute")]
+            public List<SharcFile.Symbol> Attributes { get; set; } = new();
+            [XmlArray("samplers")]
+            [XmlArrayItem("sampler")]
+            public List<SharcFile.Symbol> Samplers { get; set; } = new();
+            [XmlArray("vertex_macros")]
+            [XmlArrayItem("vertex_macro")]
+            public List<SharcFile.MacroDefine> VertexMacros { get; set; } = new();
+            [XmlArray("fragment_macros")]
+            [XmlArrayItem("fragment_macros")]
+            public List<SharcFile.MacroDefine> FragmentMacros { get; set; } = new();
         }
 
         public class SharcProgramMacro
@@ -38,8 +58,8 @@ namespace ShaderBuilder
 
         public class SharcMetaData
         {
-            [XmlArray("Programs")]
-            [XmlArrayItem("Program")]
+            [XmlArray("programs")]
+            [XmlArrayItem("program")]
             public List<SharcProgramMetaData> Programs { get; set; } = new();
 
             public string ToXml()
@@ -93,6 +113,15 @@ namespace ShaderBuilder
                             values = variant.Values,
                         });
                     }
+                }
+                if (!sharc.IsSwitch)
+                {
+                    metaProgram.Uniforms = prog.Uniforms;
+                    metaProgram.UniformBlocks = prog.UniformBlocks;
+                    metaProgram.Samplers = prog.Samplers;
+                    metaProgram.Attributes = prog.Attributes;
+                    metaProgram.VertexMacros = prog.VertexMacros;
+                    metaProgram.FragmentMacros = prog.FragmentMacros;
                 }
             }
             // Export meta xml
@@ -167,6 +196,12 @@ namespace ShaderBuilder
                     VertexShaderIndex = sharc.Sources.FindIndex(x => x.Name == vertSource.Name),
                     FragmentShaderIndex = sharc.Sources.FindIndex(x => x.Name == fragSource.Name),
                     VariationMacros = variationMacros,
+                    VertexMacros = program.VertexMacros,
+                    FragmentMacros = program.FragmentMacros,
+                    UniformBlocks = program.UniformBlocks,
+                    Uniforms = program.Uniforms,
+                    Samplers = program.Samplers,
+                    Attributes = program.Attributes,
                     Name = program.name,
                 });
             }
@@ -339,20 +374,137 @@ namespace ShaderBuilder
             return sharcfb;
         }
 
-        static string CompileSource(string text, int type, int location)
+        public static SharcfbFileWiiU ToBinaryWiiU(SharcFile sharc)
+        {
+            bool failed = false;
+            int platform = 1; // Wii U
+            int variant = 0;
+
+            SharcfbFileWiiU sharcfb = new();
+            sharcfb.Name = sharc.Name;
+            foreach (var prog in sharc.Programs)
+            {
+                var sharcfbProg = new SharcfbFileWiiU.ShaderProgram();
+                sharcfbProg.Name = prog.Name;
+                sharcfbProg.Kind = 3; // vertex + pixel
+                sharcfbProg.BaseIndex = sharcfb.Binaries.Count;
+                sharcfbProg.VariationDefaults = prog.VariationDefaults;
+                sharcfbProg.VariationMacros = prog.VariationMacros;
+                sharcfbProg.Uniforms = prog.Uniforms;
+                sharcfbProg.UniformBlocks = prog.UniformBlocks;
+                sharcfbProg.Samplers = prog.Samplers;
+                sharcfbProg.Attributes = prog.Attributes;
+
+                sharcfb.Programs.Add(sharcfbProg);
+
+                string vertexShader = sharc.Sources[prog.VertexShaderIndex].GetCode();
+                string fragShader = sharc.Sources[prog.FragmentShaderIndex].GetCode();
+                vertexShader = ProcessIncludes(vertexShader, sharc);
+                fragShader = ProcessIncludes(fragShader, sharc);
+                vertexShader = CompileSource(vertexShader, 0, 0, platform);
+                fragShader = CompileSource(fragShader, 1, 0, platform);
+
+                string[] sources = new[]
+                {
+                    vertexShader, fragShader
+                };
+                List<SharcFile.MacroDefine>[] defines = new[]
+                {
+                    prog.VertexMacros, prog.FragmentMacros
+                };
+                SharcfbFileWiiU.GX2ShaderType[] stageTypes = new[]
+                {
+                    SharcfbFileWiiU.GX2ShaderType.Vertex,
+                    SharcfbFileWiiU.GX2ShaderType.Pixel,
+                };
+
+                ProgressBar progress = new();
+
+                // Compile all combinations
+                var allVariationCombinations = prog.GetAllVariationCombinations().ToList();
+
+                // Init each variant usage
+                foreach (var s in sharcfbProg.Attributes)
+                    s.UsedVariants = new byte[allVariationCombinations.Count];
+                foreach (var s in sharcfbProg.Samplers)
+                    s.UsedVariants = new byte[allVariationCombinations.Count];
+                foreach (var s in sharcfbProg.UniformBlocks)
+                    s.UsedVariants = new byte[allVariationCombinations.Count];
+                foreach (var s in sharcfbProg.Uniforms)
+                    s.UsedVariants = new byte[allVariationCombinations.Count];
+
+                foreach (var macros in allVariationCombinations)
+                {
+                    string vertexShaderCode = GSHCompile.CompileMacros(macros, sources[0]);
+                    string pixelShaderCode = GSHCompile.CompileMacros(macros, sources[1]);
+
+                    var gshRaw = GSHCompile.CompileStages(vertexShader, fragShader, "");
+                    if (gshRaw.Length == 0)
+                    {
+                        failed = true;
+                        break; // gsh failed
+                    }
+                    // Build the program data via the gsh file binary
+                    var gsh = new GSHFile(new MemoryStream(gshRaw));
+
+                    // Apply used variant symbols
+                    // Todo there should be a cleaner way for this
+                    foreach (var s in sharcfbProg.UniformBlocks)
+                    {
+                        if (gsh.Shaders[0].VertexHeader.HasBlock(s.Name))
+                            s.UsedVariants[variant] = 1;
+                        if (gsh.Shaders[0].PixelHeader.HasBlock(s.Name))
+                            s.UsedVariants[variant] = 1;
+                    }
+                    foreach (var s in sharcfbProg.Uniforms)
+                    {
+                        if (gsh.Shaders[0].VertexHeader.HasUniform(s.Name))
+                            s.UsedVariants[variant] = 1;
+                        if (gsh.Shaders[0].PixelHeader.HasUniform(s.Name))
+                            s.UsedVariants[variant] = 1;
+                    }
+                    foreach (var s in sharcfbProg.Attributes)
+                    {
+                        if (gsh.Shaders[0].VertexHeader.HasAttribute(s.Name))
+                            s.UsedVariants[variant] = 1;
+                        if (gsh.Shaders[0].PixelHeader.HasAttribute(s.Name))
+                            s.UsedVariants[variant] = 1;
+                    }
+                    foreach (var s in sharcfbProg.Samplers)
+                    {
+                        if (gsh.Shaders[0].VertexHeader.HasSampler(s.Name))
+                            s.UsedVariants[variant] = 1;
+                        if (gsh.Shaders[0].PixelHeader.HasSampler(s.Name))
+                            s.UsedVariants[variant] = 1;
+                    }
+
+                    sharcfb.Binaries.Add(new SharcfbFileWiiU.ShaderBinary()
+                    {
+                        Data = gsh.Shaders[0].SaveVertexData(),
+                        Type = SharcfbFileWiiU.GX2ShaderType.Vertex,
+                    });
+                    sharcfb.Binaries.Add(new SharcfbFileWiiU.ShaderBinary()
+                    {
+                        Data = gsh.Shaders[0].SavePixelData(),
+                        Type = SharcfbFileWiiU.GX2ShaderType.Pixel,
+                    });
+
+                    variant++;
+                }
+            }
+            return sharcfb;
+        }
+
+        static string CompileSource(string text, int type, int location, int platform = 0)
         {
             // Remove all version data
             string pattern = @"#version.*";
             text = Regex.Replace(text, pattern, string.Empty);
 
-            int platform = 0;
-
             string[] targets = new[]
             {
                 // NVN
                 "#define AGL_TARGET_NVN",
-                // PC
-                "#define AGL_TARGET_GL",
                 // Wii U
                 "#define AGL_TARGET_GX2",
             };
@@ -365,8 +517,7 @@ namespace ShaderBuilder
                 "#extension GL_ARB_shading_language_420pack : enable\n" +
                 "#define AGL_VARYING out\n",
                 // GX2
-                "#version 330\n" +
-                "#extension GL_ARB_texture_cube_map_array : enable\n"
+                "#version 330\n"
             };
 
             string[] stages = new[]
