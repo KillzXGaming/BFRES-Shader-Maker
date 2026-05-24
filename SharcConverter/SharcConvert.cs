@@ -158,6 +158,12 @@ namespace ShaderBuilder
             if (File.Exists(metaPath))
                 meta = SharcMetaData.FromXml(File.ReadAllText(metaPath));
 
+            if (meta.Programs.Count == 0)
+            {
+                Console.WriteLine($"No programs loaded. Make sure meta.xml is created or dumped from a sharc!");
+                return sharc;
+            }
+
             sharc.FileHeader.Version = meta.wii_u ? 11u : 13u;
 
             // Load source files
@@ -187,8 +193,9 @@ namespace ShaderBuilder
                 }
 
                 // Load macros. Use meta data macros if present instead
+                // Also check if there are other defines. If there are seperate vertex/frag defines, expect to use variation macros
                 List<SharcFile.VariationMacro> variationMacros = new();
-                if (program.macros.Count > 0)
+                if (program.macros.Count > 0 || program.VertexMacros.Count > 0 || program.FragmentMacros.Count > 0)
                 {
                     foreach (var macro in program.macros)
                         variationMacros.Add(new SharcFile.VariationMacro()
@@ -270,7 +277,11 @@ namespace ShaderBuilder
                             if (v == "bool")
                                 variant.Values = new List<string>() { "0", "1" };
                             else
-                                throw new Exception($"Choice {v} not supported yet!");
+                            {
+                                // split by , and : per entry
+                                foreach (var val in v.Split(","))
+                                    variant.Values.Add(val.Split(":").FirstOrDefault());
+                            }
                             break;
                         case "default":
                             break;
@@ -581,6 +592,7 @@ namespace ShaderBuilder
                 "#define AGL_TARGET_GX2",
             };
 
+
             string[] macros = new[]
             {
                 // PC
@@ -605,7 +617,10 @@ namespace ShaderBuilder
             sb.AppendLine(stages[(int)type]);
             sb.AppendLine(targets[(int)platform]);
             sb.AppendLine("// ------------------------------------------------");
-            sb.Append(ConvertLooseUniformsToBlock(text, "RegisterUBO", 0));
+            if (platform == CompilePlatform.NX)
+                sb.Append(ConvertLooseUniformsToBlock(text, "RegisterUBO", 0));
+            else
+                sb.Append(text);
 
             return sb.ToString();
         }
@@ -680,9 +695,6 @@ namespace ShaderBuilder
                     $"    {type}\t{name};" +
                     $"{(string.IsNullOrWhiteSpace(comment) ? "" : "\t" + comment)}");
             }
-
-            if (blockLines.Count == 0)
-                return "";
 
             string block =
                 $@"layout(std140, binding = {binding}) uniform {blockName}

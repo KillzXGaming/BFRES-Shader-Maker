@@ -27,12 +27,14 @@ namespace SharcConverter
                     if (sharc.FileHeader.Version < 13)
                     {
                         var sharcfb = SharcConvert.ToBinaryWiiU(sharc);
-                        sharcfb.Save($"{sharcfb.Name}.sharcfb");
+                        if (sharcfb.Programs.Count > 0)
+                            sharcfb.Save($"{sharcfb.Name}.sharcfb");
                     }
                     else
                     {
                         var sharcfb = SharcConvert.ToBinary(sharc);
-                        sharcfb.Save($"{sharcfb.Name}.sharcfb");
+                        if (sharcfb.Programs.Count > 0)
+                            sharcfb.Save($"{sharcfb.Name}.sharcfb");
                     }
                 }
             }

@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using ShaderBuilderTool.Convert;
 using ShaderLibrary;
 using ShaderLibrary.IO;
+using ShaderLibrary.Sharc;
 using System;
 using System.Diagnostics;
 using System.IO;
