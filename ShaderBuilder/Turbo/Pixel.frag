@@ -757,25 +757,25 @@ void main()
 
         if (enable_color_buffer)
         {
-                if (color_buffer_as_albedo)
-                {
-                    //indirect coords behind only
-                    //First indirect the depth tex, adjusting the size with the screen width/height ratio
-                    vec2 off = normalize(ind_offset) * vec2(context.cf.z, context.cf.w);
-                    //Get the depth
-                    float depth_n = texture(gsys_normalized_linear_depth, screenCoords + off * 2.0).r;
-                    float z         = ( fScreenCoords.z / fScreenCoords.w + 1.0 ) * 0.5; //normalized z depth
-                    float dist = depth_n - z; //distance between current depth and previously sampled depth
+            if (color_buffer_as_albedo)
+            {
+                //indirect coords behind only
+                //First indirect the depth tex, adjusting the size with the screen width/height ratio
+                vec2 off = normalize(ind_offset) * vec2(context.cf.z, context.cf.w);
+                //Get the depth
+                float depth_n = texture(gsys_normalized_linear_depth, screenCoords + off * 2.0).r;
+                float z         = ( fScreenCoords.z / fScreenCoords.w + 1.0 ) * 0.5; //normalized z depth
+                float dist = depth_n - z; //distance between current depth and previously sampled depth
 
-                    //Check if depth is within range of the sampled depth and the surface/material z
-                    //Refract any behind the depth
-                    float depth_diff = ((dist > 0.0 ? 1.0 : 0.0) + 0.0 - dist < 0.0 ? 1.0 : 0.0 + 1.0) * 0.5;
+                //Check if depth is within range of the sampled depth and the surface/material z
+                //Refract any behind the depth
+                float depth_diff = ((dist > 0.0 ? 1.0 : 0.0) + 0.0 - dist < 0.0 ? 1.0 : 0.0 + 1.0) * 0.5;
 
-                    vec4 color_tex = texture(gsys_color_buffer, screenCoords + ind_offset * depth_diff);
-                    albedo_sample.rgb = color_tex.rgb;
-                    albedo_sample.a = 1.0;
-                    t_Alpha = 1.0;
-                }
+                vec4 color_tex = texture(gsys_color_buffer, screenCoords + ind_offset * depth_diff);
+                albedo_sample.rgb = color_tex.rgb;
+                albedo_sample.a = 1.0;
+                t_Alpha = 1.0;
+            }
         }
 
         CalcMultiTexture(0, albedo_sample);
@@ -853,12 +853,12 @@ void main()
     if (enable_bake_texture)
 	    t_ShadowIntensity *= t_BakeResult.Shadow;
 
-    t_ShadowIntensity *= mix(1.0, t_ShadowIntensity, scene_material.shadow_color.a); //intensity param
-    t_ShadowIntensity *= mix(1.0, t_ShadowIntensity, mat.shadow_density); //intensity param
+    t_ShadowIntensity *= scene_material.shadow_color.a;
+    t_ShadowIntensity *= mat.shadow_density;
+    t_ShadowIntensity = saturate(t_ShadowIntensity);
 
     //LIGHTING
 	float t_LightIntensity = 1.0 - t_ShadowIntensity;
-    t_LightIntensity *= 1.0 - scene_material.light_prepass_param.z; //light intensity affecting shadows
 
 	//LIGHTS (ie probe lighting, point, spot lights)
     vec3 light_prepass_diff = vec3(0.0);
@@ -876,11 +876,13 @@ void main()
 #endif
 
         //shadows affect lpp
-        light_prepass_diff *= fma(t_LightIntensity, 0.0 - scene_material.light_prepass_param.z, 1.0);
-        light_prepass_spec *= fma(t_LightIntensity, 0.0 - scene_material.light_prepass_param.z, 1.0);
+        light_prepass_diff *= (1.0 - t_ShadowIntensity * scene_material.light_prepass_param.z);
+        light_prepass_spec *= (1.0 - t_ShadowIntensity * scene_material.light_prepass_param.z);
     }
     
-	vec3 normals_direction = vec3(1, 1, -1);	
+	vec3 normals_direction = vec3(1, 1, -1);
+    
+     normals_direction = vec3(1, 1, 1);	
 
     //TRANSMISSION
     if (enable_opa_trans)
@@ -906,7 +908,7 @@ void main()
     }
 
 	//LIGHT MAP
-    vec3 t_Lightmap_Diffuse = textureLod(gsys_lightmap_diffuse, t_FragNormal * normals_direction, t_LightIntensity).rgb;
+    vec3 t_Lightmap_Diffuse = textureLod(gsys_lightmap_diffuse, t_FragNormal * normals_direction, 1.0 - t_ShadowIntensity).rgb;
 
 #if (BLENDER_RENDER == 1)
      t_Lightmap_Diffuse = CalculateLighting(t_FragNormal, t_LightIntensity);

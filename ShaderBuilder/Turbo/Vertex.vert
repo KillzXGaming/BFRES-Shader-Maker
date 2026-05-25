@@ -36,7 +36,8 @@ vec4 calc_fog(vec3 pos, int idx)
 	float z = dot(fog.Direction.xyz, pos.xyz);
 
 	vec4 fog_output = vec4(fog.Color.xyz, 1.0);
-	fog_output.a = fog.Color.a * clamp(z * fog.End + fog.Start, 0.0, 1.0);
+    float a = clamp(z * fog.End + fog.Start, 0.0, 1.0);
+	fog_output.a = a * a * fog.Color.a ;
 
 	return fog_output;
 }
