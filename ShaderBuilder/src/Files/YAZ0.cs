@@ -21,7 +21,7 @@ namespace ShaderBuilder
         public static unsafe byte[] Compress(string FileName, int level = 3, UInt32 res1 = 0, UInt32 res2 = 0) => Compress(File.ReadAllBytes(FileName), level, res1, res2);
         public static unsafe byte[] Compress(byte[] Data, int level = 3, UInt32 reserved1 = 0, UInt32 reserved2 = 0)
         {
-           if (szs.CanUse())
+           if (szs.CanUse() && level <= 3)
             {
                 var algo = szs.CompressionAlgorithm.MK8;
                 return szs.Encode(Data, algo, (uint)reserved1);
