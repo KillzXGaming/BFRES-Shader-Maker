@@ -21,11 +21,11 @@ namespace ShaderBuilder
         public static unsafe byte[] Compress(string FileName, int level = 3, UInt32 res1 = 0, UInt32 res2 = 0) => Compress(File.ReadAllBytes(FileName), level, res1, res2);
         public static unsafe byte[] Compress(byte[] Data, int level = 3, UInt32 reserved1 = 0, UInt32 reserved2 = 0)
         {
-         /*  if (szs.CanUse())
+           if (szs.CanUse())
             {
-                var algo = szs.CompressionAlgorithm.LibYaz0;
+                var algo = szs.CompressionAlgorithm.MK8;
                 return szs.Encode(Data, algo, (uint)reserved1);
-            }*/
+            }
 
             int maxBackLevel = (int)(0x10e0 * (level / 9.0) - 0x0e0);
             byte* dataptr = (byte*)Marshal.UnsafeAddrOfPinnedArrayElement(Data, 0);

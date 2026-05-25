@@ -408,7 +408,6 @@ vec3 CalcNormals()
     if (!enable_normal_map)
         return normalize(fNormals.xyz);
 
-
     //TBN
     vec3 t_Normals = fNormals.xyz;
     vec3 t_Tangent = fTangents.xyz;
@@ -423,18 +422,19 @@ vec3 CalcNormals()
 
     vec3 t_NormalWorld0 = CalcTangentToWorld(t_TangentNormal0, t_Tangent, t_Binormal, t_Normals);
 
-#if (gsys_enable_normal_map2)
-    vec3 t_TangentNormal1 = SampleNormalMap1(normal_map_layer2);
-    vec3 t_NormalWorld1 = CalcTangentToWorld(t_TangentNormal1, t_Tangent, t_Binormal, t_Normals);
-    return normalize(mix(t_NormalWorld0, t_NormalWorld1, mat.normal_map_weight));
-#endif
+    if (gsys_enable_normal_map2)
+    {
+        vec3 t_TangentNormal1 = SampleNormalMap1(normal_map_layer2);
+        vec3 t_NormalWorld1 = CalcTangentToWorld(t_TangentNormal1, t_Tangent, t_Binormal, t_Normals);
+        return normalize(mix(t_NormalWorld0, t_NormalWorld1, mat.normal_map_weight));
+    }
 
     return normalize(t_NormalWorld0);
 }
 
 void CalcBakeResult(out BakeResult t_Result, in vec4 t_TexCoordBake) 
 {
-#if (bake_light_type == 0)
+    if (bake_light_type == 0)
     {
 #if (BLENDER_RENDER == 1)
         vec4 t_Lightmap = texture(bake_light_map, t_TexCoordBake.zw);
@@ -443,34 +443,32 @@ void CalcBakeResult(out BakeResult t_Result, in vec4 t_TexCoordBake)
 #endif
         t_Result.IndirectLight = t_Lightmap.rgb * t_Lightmap.a * mat.gsys_bake_light_scale.rgb * scene_material.lighting.y;
     }
-#else
+    else
         t_Result.IndirectLight = vec3(0.0);
-#endif
 
-#if (bake_shadow_type == 0)
+    if (bake_shadow_type == 0)
     {
         float t_BakeSample = texture(bake_shadow_map, t_TexCoordBake.xy).r;
         t_Result.AO = t_BakeSample;
         t_Result.Shadow = 1.0;
     }
-#elif (bake_shadow_type == 1)
+    else if (bake_shadow_type == 1)
     {
         float t_BakeSample = texture(bake_shadow_map, t_TexCoordBake.xy).r;
         t_Result.AO = 1.0;
         t_Result.Shadow = t_BakeSample;
     }
-#elif (bake_shadow_type == 2)
+    else if (bake_shadow_type == 2)
     {
         vec2 t_BakeSample = texture(bake_shadow_map, t_TexCoordBake.xy).rg;
         t_Result.AO = t_BakeSample.r;
         t_Result.Shadow = t_BakeSample.g;
     }
-#else
+    else
     {
         t_Result.AO = 1.0;
         t_Result.Shadow = 1.0;
     }
-#endif
 }
 
 float CalcLuminance(vec3 color)
@@ -757,27 +755,28 @@ void main()
         //get albedo texture
         vec4 albedo_sample = texture(albedo_texture, texCoords + ind_offset);
 
-#if (enable_color_buffer)
-        if (color_buffer_as_albedo)
+        if (enable_color_buffer)
         {
-            //indirect coords behind only
-            //First indirect the depth tex, adjusting the size with the screen width/height ratio
-            vec2 off = normalize(ind_offset) * vec2(context.cf.z, context.cf.w);
-            //Get the depth
-            float depth_n = texture(gsys_normalized_linear_depth, screenCoords + off * 2.0).r;
-            float z         = ( fScreenCoords.z / fScreenCoords.w + 1.0 ) * 0.5; //normalized z depth
-            float dist = depth_n - z; //distance between current depth and previously sampled depth
+                if (color_buffer_as_albedo)
+                {
+                    //indirect coords behind only
+                    //First indirect the depth tex, adjusting the size with the screen width/height ratio
+                    vec2 off = normalize(ind_offset) * vec2(context.cf.z, context.cf.w);
+                    //Get the depth
+                    float depth_n = texture(gsys_normalized_linear_depth, screenCoords + off * 2.0).r;
+                    float z         = ( fScreenCoords.z / fScreenCoords.w + 1.0 ) * 0.5; //normalized z depth
+                    float dist = depth_n - z; //distance between current depth and previously sampled depth
 
-            //Check if depth is within range of the sampled depth and the surface/material z
-            //Refract any behind the depth
-            float depth_diff = ((dist > 0.0 ? 1.0 : 0.0) + 0.0 - dist < 0.0 ? 1.0 : 0.0 + 1.0) * 0.5;
+                    //Check if depth is within range of the sampled depth and the surface/material z
+                    //Refract any behind the depth
+                    float depth_diff = ((dist > 0.0 ? 1.0 : 0.0) + 0.0 - dist < 0.0 ? 1.0 : 0.0 + 1.0) * 0.5;
 
-            vec4 color_tex = texture(gsys_color_buffer, screenCoords + ind_offset * depth_diff);
-            albedo_sample.rgb = color_tex.rgb;
-            albedo_sample.a = 1.0;
-            t_Alpha = 1.0;
+                    vec4 color_tex = texture(gsys_color_buffer, screenCoords + ind_offset * depth_diff);
+                    albedo_sample.rgb = color_tex.rgb;
+                    albedo_sample.a = 1.0;
+                    t_Alpha = 1.0;
+                }
         }
-#endif
 
         CalcMultiTexture(0, albedo_sample);
         t_Alpha = albedo_sample.a;
@@ -845,12 +844,11 @@ void main()
     if (enable_dynamic_depth_shadow) 
         t_ShadowIntensity *= texture(gsys_static_depth_shadow, screenCoords).r; //dynamic
 
-#if enable_projection_shadow
+    if (enable_projection_shadow)
     {
         float shadow_proj =  textureProj(gsys_projection0, fProjCoords.xyz).r;
         t_ShadowIntensity *= mix(1.0, shadow_proj, context.cProjParams.x); //intensity param
     }
-#endif
 
     if (enable_bake_texture)
 	    t_ShadowIntensity *= t_BakeResult.Shadow;
@@ -888,12 +886,11 @@ void main()
     if (enable_opa_trans)
     {
         vec3 t_Transmission = mat.transmit_color * mat.transmit_intensity * scene_material.lighting.x; 
-        #if (enable_opa_trans_tex)
+        if (enable_opa_trans_tex)
         {
             vec2 texCoords = SelectTexCoord(texcoord_select_transmitt);
             t_Transmission *= texture(transmission_map, texCoords).rgb;
         }
-        #endif
 
         if (enable_opa_trans_albedo)
             t_Transmission *= t_Albedo.rgb;
@@ -927,7 +924,7 @@ void main()
     t_IncomingLightSpecular += CalculateSpecular(t_FragNormal, t_ViewDirection.xyz, light_prepass_spec, 
                                     1.0 - t_ShadowIntensity, t_BakeResult.IndirectLight);
 
-#if (enable_depth_buffer)
+    if (enable_depth_buffer)
     {
         //get the depth
         float depth_n = texture(gsys_normalized_linear_depth, screenCoords).r;
@@ -959,7 +956,6 @@ void main()
             t_Alpha *= clamp(depth * mat.soft_edge_dist_inv, 0, 1);
         }
     }
-#endif // enable_depth_buffer
 
     if (enable_albedo_ao)
     {
