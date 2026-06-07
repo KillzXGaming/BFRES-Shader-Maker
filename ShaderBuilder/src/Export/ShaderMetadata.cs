@@ -76,7 +76,7 @@ namespace ShaderBuilder
 
             wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_samplers.txt"));
             foreach (var attr in shader.Samplers)
-                wr.WriteLine($"layout (binding = {attr.Value.Index}) uniform sampler2D sampler {attr.Key}; //@ id=\"{attr.Key}\"");
+                wr.WriteLine($"layout (binding = {attr.Value.Index}) uniform sampler2D {attr.Key}; //@ id=\"{attr.Key}\"");
             wr.Close();
         }
     }
