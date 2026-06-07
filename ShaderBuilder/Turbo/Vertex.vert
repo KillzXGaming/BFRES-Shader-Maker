@@ -25,6 +25,7 @@ layout (location = 7) out vec4 fScreenCoords;
 layout (location = 9) out vec4 fVtxColor0;
 layout (location = 10) out vec4 fTexCoords23;
 layout (location = 11) out vec4 fViewPos;
+layout (location = 12) out vec4 fCascadeInfo;
 #endif
 
 #include "WiiUCommon.glsl"
@@ -123,11 +124,19 @@ void main()
     mat4 viewMatrix = mat4(view);
     vec3 camPos = viewMatrix[3].xyz;
 
-    if (enable_far_infinity)
+    if (enable_far_infinity || enable_far_inf_ignore_y)
     {
-        view[0].w = 0.0;
-        view[1].w = 0.0;
-        view[2].w = 0.0;
+        if (enable_far_inf_ignore_y) // Not affected by horizontal camera movement
+        {
+            view[0].w = 0.0;
+            view[2].w = 0.0;
+        }
+        else
+        {
+            view[0].w = 0.0;
+            view[1].w = 0.0;
+            view[2].w = 0.0;
+        }
     }
 
 	vec3 view_p = (vec4(position.xyz, 1.0) * mat4(view)).xyz;
@@ -197,7 +206,7 @@ void main()
     if (IS_GBUFFER)
         return;
 
-	// Bake tex coords
+	// BAKES & LIGHTING --------------------------------------------------------------------------------------------------------------
     if (enable_bake_texture)
     {
 		if (bake_shadow_type != -1)
@@ -205,10 +214,48 @@ void main()
 		if (bake_light_type != -1)
 			fTexCoordsBake.zw = CalcScaleBias(vTexCoords1.xy, mat.gsys_bake_st1);
     }
+		
+	// Depth shadow cascade calculations
+	if (ENABLE_DEPTH_SHADOW_CASCADE) 
+	{
+		int cascadeIndex;
+		if (view_p.z < context.cCascadeSplitDistance.x)
+			cascadeIndex = 0;
+		else if (view_p.z < context.cCascadeSplitDistance.y)
+			cascadeIndex = 1;
+		else if (view_p.z < context.cCascadeSplitDistance.z)
+			cascadeIndex = 2;
+		else
+			cascadeIndex = 3;
+			
+		mat4 cascadeShadowMtx;
+		switch (cascadeIndex) {
+			case 0:
+				cascadeShadowMtx = context.cCascadeMtx0;
+				break;
+				
+			case 1:
+				cascadeShadowMtx = context.cCascadeMtx1;
+				break;
+				
+			case 2:
+				cascadeShadowMtx = context.cCascadeMtx2;
+				break;
+				
+			case 3:
+				cascadeShadowMtx = context.cCascadeMtx3;
+				break;
+		}
+			
+		vec4 shadowPos = vec4(position.xyz, 1.0) * cascadeShadowMtx;
+		vec2 shadowUV = shadowPos.xy / shadowPos.w;
+		float cascadeDepth = shadowPos.z / shadowPos.w;
+		
+		fCascadeInfo = vec4(shadowUV, float(cascadeIndex), cascadeDepth);
+	}
 
     if (enable_depth_buffer)
 	    fViewPos.xyz = view_p;
-
 
 	// FOG ---------------------------------------------------------------------------------------------------------------------------
 	if (enable_fog) 

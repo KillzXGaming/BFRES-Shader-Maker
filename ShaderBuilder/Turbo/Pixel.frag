@@ -93,7 +93,7 @@
 		layout (binding = 11) uniform samplerCube gsys_lightmap_diffuse; //@ id="gsys_lightmap_diffuse"
 		layout (binding = 12) uniform samplerCubeArray gsys_cube_map; //@ id="gsys_cube_map"
 		layout (binding = 13) uniform sampler2D gsys_static_depth_shadow; //@ id="gsys_static_depth_shadow"
-		layout (binding = 14) uniform sampler2D gsys_depth_shadow_cascade; //@ id="gsys_depth_shadow_cascade"
+		layout (binding = 14) uniform sampler2DArrayShadow gsys_depth_shadow_cascade; //@ id="gsys_depth_shadow_cascade"
 		layout (binding = 15) uniform sampler2D gsys_projection0; //@ id="gsys_projection0"
 		layout (binding = 16) uniform sampler2DArray gsys_light_prepass; //@ id="gsys_light_prepass"
 		layout (binding = 17) uniform sampler2D gsys_color_buffer; //@ id="gsys_color_buffer"
@@ -111,6 +111,7 @@
 		layout (location = 9) in vec4 fVtxColor0;
 		layout (location = 10) in vec4 fTexCoords23;
 		layout (location = 11) in vec4 fViewPos;
+		layout (location = 12) in vec4 fCascadeInfo; // xy: cascade shadow uv, z: cascade index, w: depth
 
 		layout (location = 0) out vec4 out_attr0;
 		layout (location = 3) out vec4 oNormals;
@@ -179,7 +180,7 @@ vec2 get_tex_coord(inout SelectTexCoordInfo info)
 	return info.tex_coord;
 }
 
-SelectTexCoordInfo SelectTexCoordWithoutType4(in int t_Selection) {
+SelectTexCoordInfo SelectTexCoordOnlyType0(in int t_Selection) {
 	SelectTexCoordInfo info;
 
     if (t_Selection == 0) {
@@ -207,11 +208,11 @@ SelectTexCoordInfo SelectTexCoordWithoutType4(in int t_Selection) {
 float GetGeoAlpha(sampler2D sampler)
 {
     if (geo_multi_alpha_type == 1)  // texture with uv 0
-       return texture(sampler, SelectTexCoordWithoutType4(0).result).a;
+       return texture(sampler, SelectTexCoordOnlyType0(0).result).a;
     else if (geo_multi_alpha_type == 2) // texture with uv 2
-       return texture(sampler, SelectTexCoordWithoutType4(2).result).a;
+       return texture(sampler, SelectTexCoordOnlyType0(2).result).a;
     else if (geo_multi_alpha_type == 3) // texture with uv 3
-       return texture(sampler, SelectTexCoordWithoutType4(3).result).a;
+       return texture(sampler, SelectTexCoordOnlyType0(3).result).a;
 
     // Type 0 default 
     return fVertexAlpha; 
@@ -222,12 +223,12 @@ void Indirect(inout vec2 t_TexCoord, bool is_indirect, int select)
     if (!is_indirect || !enable_indirect)
         return;
 
-    vec2 t_IndOffset = texture(indirect_texture, SelectTexCoordWithoutType4(texcoord_select_indirectA).result).rg;
+    vec2 t_IndOffset = texture(indirect_texture, SelectTexCoordOnlyType0(texcoord_select_indirectA).result).rg;
 
     if (!indirect_texture_is_BC5s)
         t_IndOffset = t_IndOffset * 2.0 - 1.0;
 
-    t_IndOffset *= mat.indirect_mag.xy;
+    t_IndOffset *= mat.indirect_mag.xy * 2.0;
     t_TexCoord += t_IndOffset;
 }
 
@@ -253,7 +254,7 @@ vec3 UnpackNormalMap(vec4 t_NormalMapSample)
 
 vec3 SampleNormalMap0()
 {
-    vec2 tex_coords = SelectTexCoordWithoutType4(texcoord_select_normal).result;
+    vec2 tex_coords = SelectTexCoordOnlyType0(texcoord_select_normal).result;
     Indirect(tex_coords, indirect_effect_normal, select_indirect_mag_normal);
 
     vec4 t_normalMap = texture(normal_map, tex_coords);        
@@ -262,7 +263,7 @@ vec3 SampleNormalMap0()
 
 vec3 SampleNormalMap1(sampler2D sampler)
 {
-    vec2 tex_coords = SelectTexCoordWithoutType4(texcoord_select_normal2).result;
+    vec2 tex_coords = SelectTexCoordOnlyType0(texcoord_select_normal2).result;
     Indirect(tex_coords, indirect_effect_normal2, select_indirect_mag_normal2);
 
     vec4 t_normalMap = texture(sampler, tex_coords);        
@@ -311,20 +312,27 @@ vec3 CalcNormals()
     return normalize(t_NormalWorld0);
 }
 
-SelectTexCoordInfo SelectTexCoord(in int t_Selection) {
-	SelectTexCoordInfo info = SelectTexCoordWithoutType4(t_Selection);
+SelectTexCoordInfo SelectTexCoord(in int t_Selection) 
+{
+	SelectTexCoordInfo info = SelectTexCoordOnlyType0(t_Selection);
 	
-	if (info.type == 4) // Sphere mapping used on metal characters
+	if (info.type != 0) 
 	{
 		vec3 n_map = CalcNormals();
 		vec3 view_n = (normalize(n_map.xyz) * mat3(context.cView)).xyz;
 		
 		#if (BLENDER_RENDER == 1)
-        vec2 uv = vec2(view_n.x, view_n.y) * 0.5 + 0.5;
+		vec2 uv = vec2(view_n.x, view_n.y);
 		#else
-		vec2 uv = vec2(view_n.x, -view_n.y) * 0.5 + 0.5;
+		vec2 uv = vec2(view_n.x, -view_n.y);
 		#endif
-
+		
+		if (info.type == 1) // Sphere mapping with Y negative offset (e.g. used on 8's Rainbow Road glass hologram)
+			uv = vec2(uv.x * 0.5 + 0.5, uv.y * 0.5 - 0.5);
+			
+		else if (info.type == 4) // Sphere mapping with Y positive offset (e.g. used on metal characters)
+			uv = uv * 0.5 + 0.5;
+		
 		info.result = calc_texcoord_matrix(info.matrix, uv);
 	}
 	
@@ -443,7 +451,7 @@ void CalcMultiTexture(in int t_OutputType, inout vec4 t_Sample)
     else if (multi_tex_calc_type_color == 34)
         t_Sample.rgb =  SampleMultiTextureA().rgb + t_Sample.rgb;
     else if (multi_tex_calc_type_color == 35)
-        t_Sample.rgb =  SampleMultiTextureA().rgb + t_Sample.rgb; //same as 34
+        t_Sample.rgb =  SampleMultiTextureA().rgb + t_Sample.rgb; // same as 34
     else if (multi_tex_calc_type_color == 38)
     {
         vec3 color = SampleMultiTextureA().rgb * -SampleMultiTextureB().rgb + SampleMultiTextureA().rgb;
@@ -454,7 +462,7 @@ void CalcMultiTexture(in int t_OutputType, inout vec4 t_Sample)
     else if (multi_tex_calc_type_color == 40)
         t_Sample.rgb = SampleMultiTextureA().rgb * SampleMultiTextureA().a * fVtxColor0.r + t_Sample.rgb;
     else if (multi_tex_calc_type_color == 44)
-        t_Sample.rgb = saturate((t_Sample.rgb .x - SampleMultiTextureA().rgb - mat.multi_tex_param0.x) * mat.multi_tex_param0.y);
+        t_Sample.rgb = saturate((t_Sample.rgb.x - SampleMultiTextureA().rgb - mat.multi_tex_param0.x) * mat.multi_tex_param0.y);
 
     if (multi_tex_calc_type_alpha == 1)
         t_Sample.a *= SampleMultiTextureA().a;
@@ -474,7 +482,7 @@ void CalcMultiTexture(in int t_OutputType, inout vec4 t_Sample)
 
 void CalcGeoMultiTextureSpec(inout vec4 t_SpecMask)
 {
-    if (!enable_geo_multi)
+    if (!enable_geo_multi || !enable_multi_texture)
         return;
 
     if (geo_multi_specmask_calc_type == 0)
@@ -485,12 +493,12 @@ void CalcGeoMultiTextureSpec(inout vec4 t_SpecMask)
             t_SpecMask.rgb = mix(t_SpecMask.rgb, SampleMultiTextureB().rgb, GetGeoAlpha(texture_multiA));
     }
     else if (geo_multi_specmask_calc_type == 1)
-        t_SpecMask.rgb = t_SpecMask.rgb * SampleMultiTextureB().rgb;
+        t_SpecMask.rgb *= SampleMultiTextureB().rgb;
 }
 
 void CalcBakeResult(out BakeResult t_Result, in vec4 t_TexCoordBake) 
 {
-    if (bake_light_type == 0)
+    if (enable_diffuse && bake_light_type == 0)
     {
 		#if (BLENDER_RENDER == 1)
         vec4 t_Lightmap = texture(bake_light_map, t_TexCoordBake.zw);
@@ -688,7 +696,7 @@ vec3 CalculateSpecular(vec3 t_Normal, vec3 t_ViewDirection, vec3 t_Lightprepass,
 
         scale *= 1.0 - s * shadow_l_scale;
     }
-    else if (enable_bake_texture || enable_static_depth_shadow || enable_projection_shadow) // Cancel spec by shadow (if shadows are used)
+    else if (HAS_SHADOW) // Cancel spec by shadow (if shadows are used)
     {
         scale *= 1.0 - shadow * shadow_l_scale;
     }
@@ -778,8 +786,9 @@ void main()
 	// ALBEDO -----------------------------------------------------------------------------------------------------------------------
     vec3 t_Albedo = scene_material.lighting.z * mat.albedo_tex_color.rgb;
 	float t_Alpha = 1.0;
+	bool color_buffer = (enable_color_buffer && color_buffer_as_albedo);
 
-    if ((enable_diffuse2 && enable_albedo) || color_buffer_as_albedo)
+    if ((enable_diffuse2 && enable_albedo) || color_buffer)
     {
         // Indirect calculations
         vec2 ind_offset = vec2(0.0);
@@ -788,7 +797,7 @@ void main()
         vec2 texCoords = SelectTexCoord(texcoord_select_albedo).result;
         vec4 albedo_sample = vec4(1.0);
 		
-        if (enable_color_buffer && color_buffer_as_albedo)
+        if (color_buffer)
         {
             // Indirect coords behind only
             // First indirect the depth tex, adjusting the size with the screen width/height ratio
@@ -871,29 +880,33 @@ void main()
         t_Emission *= fVtxColor0.rgb;
 
 	// SHADOWS -----------------------------------------------------------------------------------------------------------------------
-	float t_ShadowIntensity = 1.0;
-	bool has_shadow = (enable_static_depth_shadow || enable_dynamic_depth_shadow || enable_projection_shadow || enable_bake_texture);
+	float t_ShadowMult = 1.0;
 
-    if (enable_static_depth_shadow)
-        t_ShadowIntensity *= texture(gsys_static_depth_shadow, screenCoords).g; // static
-
-    if (enable_dynamic_depth_shadow) 
-        t_ShadowIntensity *= texture(gsys_static_depth_shadow, screenCoords).r; // dynamic
+	if (ENABLE_DEPTH_SHADOW_CASCADE) 
+		t_ShadowMult *= texture(gsys_depth_shadow_cascade, fCascadeInfo);
+	else 
+	{
+		if (enable_dynamic_depth_shadow) 
+			t_ShadowMult *= texture(gsys_static_depth_shadow, screenCoords).r; // dynamic
+			
+		if (enable_static_depth_shadow)
+			t_ShadowMult *= texture(gsys_static_depth_shadow, screenCoords).g; // static
+	}
 
     if (enable_projection_shadow)
     {
         float shadow_proj = textureProj(gsys_projection0, fProjCoords.xyz).r;
-        t_ShadowIntensity *= mix(1.0, shadow_proj, context.cProjParams.x); // intensity param
+        t_ShadowMult *= mix(1.0, shadow_proj, context.cProjParams.x); // intensity param
     }
 
     if (enable_bake_texture) {
-	    t_ShadowIntensity *= t_BakeResult.Shadow * scene_material.shadow_color.a;
-		t_ShadowIntensity = saturate(t_ShadowIntensity);
+	    t_ShadowMult *= t_BakeResult.Shadow;
+		t_ShadowMult = saturate(t_ShadowMult);
 	}
 	
-	t_ShadowIntensity = 1.0 - t_ShadowIntensity;
-	if (has_shadow)
-		t_ShadowIntensity *= mat.shadow_density;
+	float t_ShadowIntensity = 1.0 - t_ShadowMult;
+	if (HAS_SHADOW)
+		t_ShadowIntensity *= mat.shadow_density * scene_material.shadow_color.a;
 
     // LIGHTING ------------------------------------------------------------------------------------------------------------------------
 	float t_LightIntensity = t_ShadowIntensity;
@@ -902,7 +915,7 @@ void main()
     vec3 light_prepass_diff = vec3(0.0);
     vec3 light_prepass_spec = vec3(0.0);
 
-    if (enable_light_pre_pass)
+    if (enable_diffuse && enable_light_pre_pass)
     {
 		#if (BLENDER_RENDER == 1)
         light_prepass_diff = texture(gsys_light_prepass, screenCoords).xyz;
@@ -924,7 +937,6 @@ void main()
     
 	// Inverse vectors
 	vec3 t_FragNormalInv = transformToMinusZForward(t_FragNormal);
-	vec3 t_ViewDirectionR = reflect(t_ViewDirection.xyz, normalize(t_FragNormal));
 
     // TRANSMISSION ----------------------------------------------------------------------------------------------------------------------
     if (enable_opa_trans)
@@ -932,45 +944,46 @@ void main()
         vec3 t_Transmission = mat.transmit_color * mat.transmit_intensity * scene_material.lighting.x; 
 
 		float t_TransmitLightIntensity = t_LightIntensity;
-		if (has_shadow)
+		if (HAS_SHADOW)
 			t_TransmitLightIntensity *= mat.transmit_shadow_intensity;
 			
-        if (enable_opa_trans_tex)
+		if (enable_opa_trans_albedo) 
+			t_Transmission *= t_Albedo.rgb;
+        else if (enable_opa_trans_tex)
         {
             vec2 texCoords = SelectTexCoord(texcoord_select_transmitt).result;
-			
-			if (enable_opa_trans_albedo)
-				t_Transmission *= t_Albedo.rgb;
-			else
-				t_Transmission *= texture(transmission_map, texCoords).rgb;
+			t_Transmission *= texture(transmission_map, texCoords).rgb;
         }
 		else
 			t_Transmission /= 10.0;
 		
         // Lighting but with negative view direction
-		vec3 t_Lightmap_DiffuseTrans = textureLod(gsys_lightmap_diffuse, t_ViewDirectionR, t_TransmitLightIntensity).rgb;
+		vec3 t_FragTransNormal = transformToMinusZForward(-t_FragNormal);
+		vec3 t_Lightmap_DiffuseTrans = textureLod(gsys_lightmap_diffuse, t_FragTransNormal, t_TransmitLightIntensity).rgb;
 
 		#if (BLENDER_RENDER == 1)
-		t_Lightmap_DiffuseTrans = CalculateLighting(t_ViewDirectionR, t_TransmitLightIntensity);
+		t_Lightmap_DiffuseTrans = CalculateLighting(t_FragNormalInv, t_TransmitLightIntensity);
 		#endif
 
         t_IncomingLightTransmission.rgb = t_Transmission * t_Lightmap_DiffuseTrans;
     }
 
 	// LIGHT MAP ---------------------------------------------------------------------------------------------------------------------------
-    vec3 t_Lightmap_Diffuse = textureLod(gsys_lightmap_diffuse, t_FragNormalInv, t_ShadowIntensity).rgb;
-
+	vec3 t_Lightmap_Diffuse = vec3(0.0);
+	
+	if (enable_diffuse)
+		t_Lightmap_Diffuse = textureLod(gsys_lightmap_diffuse, t_FragNormalInv, t_ShadowIntensity).rgb;
+	else
+		t_Lightmap_Diffuse = t_ShadowIntensity * (textureLod(gsys_lightmap_diffuse, vec3(0.0, 1.0, 0.0), 1.0).rgb - 1.0) + 1.0;
+	
 	#if (BLENDER_RENDER == 1)
-    t_Lightmap_Diffuse = CalculateLighting(t_FragNormal, t_LightIntensity);
+	t_Lightmap_Diffuse = CalculateLighting(t_FragNormalInv, t_LightIntensity);
 	#endif
 
-    if (enable_diffuse)
-        t_IncomingLightDiffuse += t_Lightmap_Diffuse;
-
-    if (enable_light_pre_pass)
-        t_IncomingLightDiffuse.rgb += light_prepass_diff;
-
-    t_IncomingLightDiffuse.rgb += t_BakeResult.IndirectLight;
+    t_IncomingLightDiffuse += t_Lightmap_Diffuse;
+	t_IncomingLightDiffuse += t_BakeResult.IndirectLight;
+	if (enable_light_pre_pass)
+		t_IncomingLightDiffuse += light_prepass_diff;
 
     // SPECULAR -----------------------------------------------------------------------------------------------------------------------------
     if (enable_specular) {
@@ -1028,9 +1041,9 @@ void main()
 
     // OUTPUT -----------------------------------------------------------------------------------------------------------------------------------
     vec3 t_OutputColor = t_Albedo.rgb;
-
-    if (enable_diffuse)
-        t_OutputColor.rgb *= t_IncomingLightDiffuse;
+	
+	if (enable_diffuse || HAS_SHADOW)
+		t_OutputColor *= t_IncomingLightDiffuse;
         
     if (enable_opa_trans)
         t_OutputColor.rgb += t_IncomingLightTransmission.rgb;

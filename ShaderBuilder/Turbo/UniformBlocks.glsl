@@ -157,6 +157,8 @@ const int MAX_BONE_COUNT = 100;
 #define IS_GBUFFER gsys_assign_type == 2 // gsys_assign_gbuffer
 #define IS_DEPTH gsys_assign_type == 1 // gsys_assign_zonly
 #define ENABLE_TRANSPARENCY gsys_renderstate == 2 || gsys_renderstate == 3 || gsys_assign_type == 3
+#define ENABLE_DEPTH_SHADOW_CASCADE !enable_bake_texture && (enable_static_depth_shadow || enable_dynamic_depth_shadow)
+#define HAS_SHADOW enable_static_depth_shadow || enable_dynamic_depth_shadow || enable_projection_shadow || enable_bake_texture
 
 // Wii U merges the scene material block, switch seperated them
 #if (IS_WII_U == 1)
@@ -263,19 +265,19 @@ layout (std140, binding = 0) uniform Context //@ id="gsys_context" size="2320"
     mat4 cCascadeMtx2;
 	// 54-57
     mat4 cCascadeMtx3;
-
 	// 58
-    vec4 Unk0;
+    vec4 cCascadeSplitDistance; // x for cCascadeMtx0, y for cCascadeMtx1, z for cCascadeMtx2
+	
 	// 59
-    vec4 Unk1;
+    vec4 Unk0;
 	// 60
-    vec4 Unk2;
+    vec4 Unk1;
 	// 61
-    vec4 Unk3;
+    vec4 Unk2;
 	// 62
-    vec4 Unk4;
+    vec4 Unk3;
 	// 63
-    vec4 Unk5;
+    vec4 Unk4;
 
 	// 64
     vec4 cCubemapHDR;
