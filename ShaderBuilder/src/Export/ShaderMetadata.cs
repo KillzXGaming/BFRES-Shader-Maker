@@ -61,7 +61,7 @@ namespace ShaderBuilder
 
                 Console.WriteLine((int)block.Value.Type + " " + block.Key);
 
-                wr.WriteLine($"layout(std140, binding = {block.Value.Index})  uniform {block.Key} {comment}");
+                wr.WriteLine($"layout(std140, binding = {block.Value.Index}) uniform {block.Key} {comment}");
                 wr.WriteLine("{");
                 wr.WriteLine("  vec4 data[4096];");
                 wr.WriteLine("}" + block.Key.ToLower() + ";");
@@ -76,7 +76,7 @@ namespace ShaderBuilder
 
             wr = new StreamWriter(Path.Combine(folder, $"{shader.Name}_samplers.txt"));
             foreach (var attr in shader.Samplers)
-                wr.WriteLine($"layout (binding = {attr.Value.Index}) uniform sampler2D sampler{attr.Key}; //@ id=\"{attr.Key}\"");
+                wr.WriteLine($"layout (binding = {attr.Value.Index}) uniform sampler2D sampler {attr.Key}; //@ id=\"{attr.Key}\"");
             wr.Close();
         }
     }
