@@ -7,6 +7,7 @@ using CommandLine;
 using Newtonsoft.Json;
 using ShaderBuilderTool.Convert;
 using ShaderLibrary;
+using ShaderLibrary.CompileTool;
 using ShaderLibrary.IO;
 using ShaderLibrary.Sharc;
 using System;
@@ -492,8 +493,8 @@ namespace ShaderBuilder
                                 // Temp, need to add a way to filter wii u/switch macros
                                 // Switch/Wii U shaders are shared, wii u does not use this option
                                 // If gsys_alpha_test_enable is present, the shader viewer tools fail to load it unless AlphaTestEnabled is matching
-                                if (material.RenderState.AlphaControl.AlphaTestEnabled)
-                                    variant.Options.TryAdd("gsys_alpha_test_enable", "1");
+                             //   if (material.RenderState.AlphaControl.AlphaTestEnabled)
+                                //    variant.Options.TryAdd("gsys_alpha_test_enable", "1");
                                 break;
                             case "ALPHA_FUNC":
                                 switch (material.RenderState.AlphaControl.AlphaFunc)
