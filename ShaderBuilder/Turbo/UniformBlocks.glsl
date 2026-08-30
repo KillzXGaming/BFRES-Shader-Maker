@@ -2,16 +2,13 @@
 
 const int MAX_BONE_COUNT = 100;
 
-#define enable_debug_shading false  //
+#define enable_debug_shading false //
 
 #define IS_WII_U 0 //@
 
-//-----------------------------------
-//Static Options
-//-----------------------------------
-
+// STATIC OPTIONS -----------------------------------------------------------------------------------------------------------------------------------------
 #define gsys_alpha_test_enable false //@ render_state_property="ALPHA_TEST" render_info="gsys_alpha_test_enable" choices="false:0 true:1"
-#define gsys_alpha_test_func 6 //@ choices="0 1 2 3 4 5 6 7" render_state_property="ALPHA_FUNC"
+#define gsys_alpha_test_func 6 //@ render_state_property="ALPHA_FUNC" render_info="gsys_alpha_test_func" choices="never:0 less:1 custom:2 lequal:3 greater:4 nequal:5 gequal:6 equal:7"
 #define enable_far_infinity false //@
 #define enable_far_inf_ignore_y false //@
 #define gsys_invalidate_world_srt false //@
@@ -136,7 +133,7 @@ const int MAX_BONE_COUNT = 100;
 #define gsys_renderstate 0 //@ render_state_property="RENDER_STATE" render_info="gsys_render_state_mode" choices="opaque:0 mask:1 translucent:2 custom:3"
 #define enable_specular_physical false //@
 
-// XLU options (todo should we split shader models?)
+// XLU options (TODO: should we split shader models?)
 #define enable_depth_buffer false //@
 #define enable_xlu_depth_silhoutte false //@
 #define enable_soft_edge false //@
@@ -152,17 +149,17 @@ const int MAX_BONE_COUNT = 100;
 #define gsys_reflection_type 0 //@
 #define bake_calc_type 0 //@
 
-//-----------------------------------
-//Dynamic Options
-//-----------------------------------
+// DYNAMIC OPTIONS ----------------------------------------------------------------------------------------------------------------------------------------
 #define gsys_weight -1 //@ branch="dynamic" is_skin_count="true"  choices="-1 0 1 2 3 4 5 6 7 8"
 #define gsys_assign_type 0 //@ branch="dynamic" type="string" flags="compile_all_coices" choices="gsys_assign_material gsys_assign_zonly gsys_assign_gbuffer gsys_assign_xlu_zprepass gsys_assign_visualize"
 #define system_id 0 //@ branch="dynamic" choices="0"
 
-#define IS_GBUFFER gsys_assign_type == 2  //gsys_assign_gbuffer
-#define IS_DEPTH gsys_assign_type == 1  //gsys_assign_zonly
+#define IS_GBUFFER gsys_assign_type == 2 // gsys_assign_gbuffer
+#define IS_DEPTH gsys_assign_type == 1 // gsys_assign_zonly
 #define ENABLE_TRANSPARENCY gsys_renderstate == 2 || gsys_renderstate == 3 || gsys_assign_type == 3
-    
+#define ENABLE_DEPTH_SHADOW_CASCADE !enable_bake_texture && (enable_static_depth_shadow || enable_dynamic_depth_shadow)
+#define HAS_SHADOW enable_static_depth_shadow || enable_dynamic_depth_shadow || enable_projection_shadow || enable_bake_texture
+
 // Wii U merges the scene material block, switch seperated them
 #if (IS_WII_U == 1)
 
@@ -224,36 +221,65 @@ layout (std140, binding = 6) uniform Context //@ id="gsys_context" size="2320"
 
 layout (std140, binding = 0) uniform Context //@ id="gsys_context" size="2320"
 {
+	// 0-2
     mat3x4 cView;
+	// 3-6
     mat4 cViewProj;
+	// 7-10
     mat4 cProj;
+	// 11-13
     mat3x4 cViewInv;
-    vec4 cNearFar; //znear, zfar, ratio, inverse ratio
-    vec4 cScreen; //screen width/height
-    vec4 cDist; //zfar - znear
-    vec4 cFovParams; //fov
+	// 14
+    vec4 cNearFar; // x: znear, y: zfar, z: ratio, w: inverse ratio
+	// 15
+    vec4 cScreen; // screen width/height
+	// 16
+    vec4 cDist; // zfar - znear
+	// 17
+    vec4 cFovParams; // FOV
+	// 18
     vec4 cf;
+	// 19
     vec4 cc;
+	// 20
     vec4 sf;
+	// 21-23
     mat3x4 cPrevView;
+	// 24-27
     mat4 cPrevViewProj;
+	// 28-31
     mat4 cPrevProj;
+	// 32-34
     mat3x4 cPrevViewInv;
+	// 35-37
     mat3x4 cProjectionTexMtx0;
+	// 38-40
     mat3x4 cProjectionTexMtx1;
+	// 41
     vec4 cProjParams;
+	// 42-45
     mat4 cCascadeMtx0;
+	// 46-49
     mat4 cCascadeMtx1;
+	// 50-53
     mat4 cCascadeMtx2;
+	// 54-57
     mat4 cCascadeMtx3;
-
+	// 58
+    vec4 cCascadeSplitDistance; // x for cCascadeMtx0, y for cCascadeMtx1, z for cCascadeMtx2
+	
+	// 59
     vec4 Unk0;
+	// 60
     vec4 Unk1;
+	// 61
     vec4 Unk2;
+	// 62
     vec4 Unk3;
+	// 63
     vec4 Unk4;
-    vec4 Unk5;
 
+	// 64
     vec4 cCubemapHDR;
 }context;
 
@@ -269,138 +295,253 @@ struct Fog {
     float Padding2;
 };
 
-layout (std140, binding = 1)  uniform Shape //@ id="gsys_shape" size="112" type="shape"
+layout (std140, binding = 1) uniform Shape //@ id="gsys_shape" size="112" type="shape"
 {
+	// 0-2
     mat3x4 cTransform;
-	vec4 cParams; //x = skin count
+	// 3
+	vec4 cParams; // x: skin count
+	// 4
 	vec4 Unknown; 
-	vec4 cAreaParams; //indices for what area to use for the cubemap (used by moving objects) 
+	// 5
+	vec4 cAreaParams; // Indices for what area to use for the cubemap (used by moving objects) 
 }shape;
 
 layout (std140, binding = 2) uniform GsysEnvironment //@ id="gsys_environment" size="464"
 {
+	// 0
     vec4 cAmbientColor;
+	// 1
     vec4 cHemiSkyColor;
+	// 2
     vec4 cHemiGroundColor;
+	// 3
     vec4 cHemiDirection;
 
+	// 4
     vec4 cLightDirection0;
+	// 5
     vec4 cLightColor;
+	// 6
     vec4 cLightSpecColor;
 
+	// 7
     vec4 cLightDirection1;
+	// 8
     vec4 cLightColor1;
+	// 9
     vec4 cLightSpecColor1;
 
-    Fog fog[4]; //env data[10] +
+    Fog fog[4]; // env data[10] +
 }environment;
 
 layout (std140, binding = 3) uniform GsysMaterial //@ id="gsys_material" type="material"
 {
+	// 0, 1
     mat2x4 tex_mtx0; //@ default_value="1 -0 0 1 0 0 0 0"
+	// 2, 3
     mat2x4 tex_mtx1; //@ default_value="1 -0 0 1 0 0 0 0"
+	// 4, 5
     mat2x4 tex_mtx2; //@ default_value="1 -0 0 1 0 0 0 0"
+	// 6
     vec4 gsys_depth_silhoutte_color; //@ default_value="1 1 1 1"
+	// 7
     vec4 gsys_outline_color; //@ default_value="1 1 1 1"
+	// 8.x
     float padding_112; //@ default_value="0"
+	// 8.y
     float bloom_intensity; //@ default_value="1"
+	// 8.z
     float gsys_outline_width; //@ default_value="1"
+	// 8.w
     float gsys_alpha_threshold; //@ default_value="0.5"
+	// 9
     vec4 gsys_area_env_data0; //@ default_value="0 0 0 0"
+	// 10
     vec4 gsys_area_env_data1; //@ default_value="0 0 0 0"
+	// 11
     vec4 gsys_sssss_color; //@ default_value="1 1 1 1"
+	// 12
     vec4 gsys_bake_st0; //@ default_value="1 1 0 0"
+	// 13
     vec4 gsys_bake_st1; //@ default_value="1 1 0 0"
+	// 14
     vec4 gsys_bake_light_scale; //@ default_value="1 1 1 0"
+	// 15
     vec4 gsys_bake_light_scale1; //@ default_value="1 1 1 0"
+	// 16
     vec4 gsys_bake_light_scale2; //@ default_value="1 1 1 0"
+	// 17.xyz
     vec3 albedo_tex_color; //@ default_value="1 1 1"
+	// 17.w
     float shadow_density; //@ default_value="1"
+	// 18
     vec4 multi_tex_reg0; //@ default_value="1 1 1 1"
+	// 19
     vec4 multi_tex_reg1; //@ default_value="1 1 1 1"
+	// 20
     vec4 multi_tex_reg2; //@ default_value="1 1 1 1"
+	// 21
     vec4 multi_tex_param0; //@ default_value="0 0 0 0"
+	// 22.xyz
     vec3 edge_light_color; //@ default_value="1 1 1"
+	// 22.w
     float edge_light_intensity; //@ default_value="0.5"
+	// 23.xy
     vec2 indirect_mag; //@ default_value="1 1"
+	// 23.z
     float indirect_magBX; //@ default_value="1"
+	// 23.w
     float indirect_magBY; //@ default_value="1"
+	// 24.xyz
     vec3 specular_color; //@ default_value="1 1 1"
+	// 24.w
     float specular_intensity; //@ default_value="1"
+	// 25.x
     float specular_roughness; //@ default_value="0"
+	// 25.y
     float specular_fresnel_i; //@ default_value="0.5"
+	// 25.z
     float specular_fresnel_s; //@ default_value="0"
+	// 25.w
     float specular_fresnel_m; //@ default_value="0"
+	// 26.xyz
     vec3 emission_color; //@ default_value="1 1 1"
+	// 26.w
     float emission_intensity; //@ default_value="0.1"
+	// 27.x
     float soft_edge_dist_inv; //@ default_value="0.1"
+	// 27.y
     float silhoutte_depth; //@ default_value="0.01"
+	// 27.z
     float refraction_intensity; //@ default_value="0"
+	// 27.w
     float normal_map_weight; //@ default_value="0.5"
+	// 28.xyz
     vec3 silhoutte_depth_color; //@ default_value="1 1 1"
+	// 28.w
     float silhoutte_depth_contrast; //@ default_value="1"
+	// 29
     vec4 mii_modulate_type; //@ default_value="0 0 0 0"
+	// 30
     vec4 mii_constant_color0; //@ default_value="0 0 0 0"
+	// 31
     vec4 mii_constant_color1; //@ default_value="0 0 0 0"
+	// 32
     vec4 mii_constant_color2; //@ default_value="0 0 0 0"
+	// 33.xyz
     vec3 gsys_mii_skin_color; //@ default_value="1 1 1"
+	// 33.w
     float mii_hair_specular_intensity; //@ default_value="1"
+	// 34.xyz
     vec3 gsys_mii_favorite_color; //@ default_value="1 1 1"
+	// 34.w
     float post_multi_texture; //@ default_value="0"
+	// 35.xyz
     vec3 fog_emission_color; //@ default_value="1 1 1"
+	// 35.w
     float fog_emission_intensity; //@ default_value="1"
+	// 36.x
     float fog_emission_effect; //@ default_value="1"
+	// 36.y
     float fog_edge_power; //@ default_value="1"
+	// 36.z
     float fog_edge_width; //@ default_value="1"
+	// 36.w
     float gsys_alpha_test_ref_value; //@ default_value="0.5"
+	// 37
     vec4 fog_edge_color; //@ default_value="1 1 1 1"
+	// 38.x
     float edge_light_sharpness; //@ default_value="0.3"
+	// 38.y
     float edge_light_rim_i; //@ default_value="1"
+	// 38.z
     float d_shadow_bake_l_cancel_rateX; //@ default_value="0.5"
+	// 38.w
     float d_shadow_bake_l_cancel_rateY; //@ default_value="0"
+	// 39.xyz
     vec3 gsys_i_color0; //@ default_value="1 1 1"
+	// 39.w
     float gsys_i_color_ratio0; //@ default_value="0"
+	// 40.xyz
     vec3 gsys_i_color0_b; //@ default_value="0 0 0"
+	// 40.w
     float gsys_edge_ratio0; //@ default_value="0"
+	// 41.xyz
     vec3 gsys_edge_color0; //@ default_value="7.500 5.0 2.500"
+	// 41.w
     float gsys_edge_width0; //@ default_value="0.5"
+	// 42.x
     float game_edge_pow; //@ default_value="20"
+	// 42.y
     float edge_alpha_scale; //@ default_value="1"
+	// 42.z
     float edge_alpha_width; //@ default_value="0.5"
+	// 42.w
     float edge_alpha_pow; //@ default_value="5"
+	// 43.x
     float transparency; //@ default_value="0.5"
+	// 43.y
     float alphat_out_start; //@ default_value="10"
+	// 43.z
     float alphat_out_end; //@ default_value="100"
+	// 43.w
     float gsys_area_env_index_diffuse; //@ default_value="0"
+	// 44.xyz
     vec3 gsys_point_light_color; //@ default_value="1 1 1"
+	// 44.w
     float ao_density; //@ default_value="1"
+	// 45.xyz
     vec3 transmit_color; //@ default_value="1 1 1"
+	// 45.w
     float transmit_intensity; //@ default_value="1"
+	// 46.x
     float edge_light_vc_intensity; //@ default_value="1"
+	// 46.y
     float specular_aniso_power; //@ default_value="10"
+	// 46.z
     float transmit_shadow_intensity; //@ default_value="1"
+	// 46.w
     float light_pre_pass_intensity; //@ default_value="1"
+	// 47.xyz
     vec3 shiny_specular_color; //@ default_value="1 1 1"
+	// 47.w
     float gsys_bake_opacity; //@ default_value="1"
+	// 48.x
     float shiny_specular_intensity; //@ default_value="256"
+	// 48.y
     float shiny_specular_sharpness; //@ default_value="160000"
+	// 48.z
     float shiny_specular_fresnel; //@ default_value="16"
+	// 48.w
     float fresnel_look_depend_factor; //@ default_value="1"
+	// 49.xyz
     vec3 decal_trail_color; //@ default_value="0 0 0"
+	// 49.w
     float decal_trail_intensity; //@ default_value="1"
+	// 50
     vec4 gsys_xlu_zprepass_alpha; //@ default_value="1 1 1 1"
+	// 51.xyz
     vec3 screen_fake_scale_factor; //@ default_value="0 0 0"
+	// 51.w
     float screen_fake_scale_begin_ratio; //@ default_value="0.25"
+	// 52
     vec4 cDebugFlags; //@ default_value="0 0 0 0"
 }mat;
 
 layout (std140, binding = 4) uniform SceneMaterial //@ id="gsys_scene_material" type="scene" size="96"
 {
+	// 0
     vec4 shadow_color; //@ id="shadow_color" default_value="0 0 0 0"
+	// 1
     vec4 ao_color; //@ id="ao_color" default_value="0 0 0 0"
+	// 2
     vec4 lighting; //@ id="lighting" default_value="1 1 1 1"
+	// 3
     vec4 lighting_specular; //@ id="lighting_specular" default_value="1 1 1 1"
+	// 4
     vec4 light_prepass_param; //@ id="light_prepass_param" default_value="1 1 1 1"
+	// 5
     vec4 exposure; //@ id="exposure" default_value="1 1 1 1"
 }scene_material;
 
