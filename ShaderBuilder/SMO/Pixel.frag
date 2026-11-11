@@ -106,10 +106,17 @@ Light SetupLight(vec3 N, vec3 view_pos)
 
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
-    float encoded = float(uint(int(uint(max(trunc(roughness * 15.0), 0.0))) << 4 | 
-                               int(uint(max(trunc(metalness * 15.0), 0.0)))) | 
-                               uint(step(0.0, normal.z))) * 0.00392156886;
+    float encoded = float(uint(int(uint(max(trunc(roughness * 15.0), 0.0))) << 4 |
+                               int(uint(max(trunc(metalness * 15.0), 0.0))))) * 0.00392156886;
     return vec4(baseColor, encoded);
+}
+
+vec2 EncodeWorldNormal(vec3 n)
+{
+    vec2 p = n.xy * (1.0 / (abs(n.z) + (abs(n.y) + abs(n.x))));
+    if (!(n.z >= 0.0))
+        p = vec2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0) * (1.0 - abs(p.yx));
+    return p * 0.5 + 0.5;
 }
 
 vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
@@ -1026,7 +1033,7 @@ void main()
     oLightBuf.rgb = min(oLightBuf.rgb, 2048.0);
 
     //Normals output as half lambert
-    oWorldNrm.rg = N.rg * 0.5 + 0.5;
+    oWorldNrm.rg = EncodeWorldNormal(N);
 
     //Depth output used for computing the deferred shader
     oNormalizedLinearDepth.r = fNormalsDepth.w;
@@ -1053,8 +1060,8 @@ void main()
     //oLightBuf.a = 1.0;
     //oBaseColor.a = 1.0;
 
-    oLightBuf.rgb *= vec3(1.0, 0, 0);
-    oBaseColor.rgb *= vec3(1.0, 0, 0);
+    oLightBuf.rgb += vec3(0.5, 0, 0);
+    oBaseColor.rgb += vec3(0.5, 0, 0);
 
   //  gl_FragDepth = gl_FragCoord.z * 0.9989999;
 

@@ -18,7 +18,7 @@ layout (location = 4) in vec4 vTexCoords0; //@ id="_u0"
 layout (location = 5) in vec4 vTexCoords1; //@ id="_u1"
 layout (location = 6) in vec4 vTexCoords2; //@ id="_u2"
 layout (location = 7) in vec4 vTexCoords3; //@ id="_u3"
-layout (location = 8) in vec4 vBitangent; //@ id="_t0"
+layout (location = 8) in vec4 vBitangent; //@ id="_t1"
 layout (location = 10) in vec4 vBoneWeight; //@ id="_w0"
 layout (location = 11) in ivec4 vBoneIndices; //@ id="_i0"
 
@@ -39,26 +39,45 @@ layout (location = 13) out noperspective vec4 fPerspDiv;
 
 #endif
 
+// Position calculations set to match alRenderDepthOnly, alRenderProgram, etc
+// A mismatch results in flickering in game
+vec3 TransformPoint(mat3x4 m, vec3 p)
+{
+    precise vec3 r;
+    r.x = fma(p.z, m[0].z, fma(p.x, m[0].x, p.y * m[0].y)) + m[0].w;
+    r.y = fma(p.z, m[1].z, fma(p.x, m[1].x, p.y * m[1].y)) + m[1].w;
+    r.z = fma(p.z, m[2].z, fma(p.x, m[2].x, p.y * m[2].y)) + m[2].w;
+    return r;
+}
+
+// world -> clip, no fused ops: ((y * m.y + x * m.x) + z * m.z) + m.w
+vec4 WorldToClip(vec3 p)
+{
+    precise vec4 r;
+    for (int i = 0; i < 4; i++)
+    {
+        vec4 m = mdlEnvView.cViewProj[i];
+        precise float xy = p.y * m.y + p.x * m.x;
+        precise float xyz = xy + p.z * m.z;
+        r[i] = xyz + m.w;
+    }
+    return r;
+}
 
 vec4 skin(vec3 pos, ivec4 index)
 {
-    vec4 newPosition = vec4(pos.xyz, 1.0);
-
     if (cSkinWeightNum == 0)
-        newPosition = vec4(pos, 1.0) * mat4(shape.cTransform);
+        return vec4(TransformPoint(shape.cTransform, pos), 1.0);
     if (cSkinWeightNum == 1)
-        newPosition = vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.x]);
+        return vec4(TransformPoint(boneMatrices.cBoneMatrices[index.x], pos), 1.0);
 
-    if (cSkinWeightNum >  1)
-        newPosition =  vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.x]) * vBoneWeight.x;
-    if (cSkinWeightNum >= 2)
-        newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.y]) * vBoneWeight.y;
+    precise vec3 p = TransformPoint(boneMatrices.cBoneMatrices[index.y], pos) * vBoneWeight.y;
+    p = fma(TransformPoint(boneMatrices.cBoneMatrices[index.x], pos), vec3(vBoneWeight.x), p);
     if (cSkinWeightNum >= 3)
-        newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.z]) * vBoneWeight.z;
+        p = fma(TransformPoint(boneMatrices.cBoneMatrices[index.z], pos), vec3(vBoneWeight.z), p);
     if (cSkinWeightNum >= 4)
-        newPosition += vec4(pos, 1.0) * mat4(boneMatrices.cBoneMatrices[index.w]) * vBoneWeight.w;
-        
-    return newPosition;
+        p = fma(TransformPoint(boneMatrices.cBoneMatrices[index.w], pos), vec3(vBoneWeight.w), p);
+    return vec4(p, 1.0);
 }
 
 vec3 skinNormal(vec3 nr, ivec4 index)
@@ -208,7 +227,7 @@ void main()
     if (enable_displacement1)
         position.xyz = CalculateDisplacement1(position.xyz, fNormalsDepth.xyz, fTexCoords01, fTexCoords23);
 
-    gl_Position = vec4(position.xyz, 1.0) * mdlEnvView.cViewProj;
+    gl_Position = WorldToClip(position.xyz);
 
     float linear_depth = (gl_Position.w - mdlEnvView.ZNearFar.x) * mdlEnvView.ZNearFar.w;
     fNormalsDepth.w = linear_depth;
@@ -272,7 +291,7 @@ void main()
     {
         vec3 invProjPos = (vec4(position.xyz, 1.0) * mat4(mdlEnvView.cViewProjInv)).xyz;
         fBitangents.z = invProjPos.x;
-        fBitangents.y = invProjPos.y;
+        fBitangents.w = invProjPos.y; // was .y, which overwrote the bitangent z
         fPreviousPos.w = invProjPos.z;
 
         //vPosition * previous mtx pos * previous view proj TODO

@@ -3,7 +3,6 @@
 using BfresLibrary;
 using BlenderBfresConverter;
 using CafeLibrary;
-using CommandLine;
 using Newtonsoft.Json;
 using ShaderBuilderTool.Convert;
 using ShaderLibrary;
@@ -466,7 +465,10 @@ namespace ShaderBuilder
                         str = optionMacro.GetMacroChoiceByRenderInfo(renderInfoChoice);
                     }
                     if (optionOverrides.ContainsKey(shaderOption.Key))
+                    {
+                        variant.OverriddenOptions[optionMacro.ID] = str;
                         str = optionOverrides[shaderOption.Key];
+                    }
 
                     // V10 using boolean but bfsha still need 0/1
                     if ((string)shaderOption.Value == "True")

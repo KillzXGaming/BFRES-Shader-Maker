@@ -29,13 +29,16 @@ namespace ShaderBuilderTool.Convert
             public uint ShaderVersionMajor = 1;
             public uint ShaderVersionMinor = 5;
 
-            // For sharing stage data from existing bfsha
+            // For sharing stage data from existing bfsha.
             public string SharedStageBfsha;
             public int SharedVertexStageProgramIndex = -1;
             public int SharedPixelStageProgramIndex = -1;
 
             // Adds more variants with option overrides.
             public List<Dictionary<string, string>> OptionOverrides = new();
+
+            // Program used when a lookup finds no program.
+            public int DefaultProgramIndex = -1;
 
             // Variant options that compile shader programs based on macro choices
             [JsonIgnore]
@@ -62,6 +65,7 @@ namespace ShaderBuilderTool.Convert
         {
             public string ShaderModel;
             public Dictionary<string, string> Options = new();
+            public Dictionary<string, string> OverriddenOptions = new();
         }
 
         public enum Platforms
@@ -133,10 +137,10 @@ namespace ShaderBuilderTool.Convert
                     var shp_idx = shaderModel.BlockIndices[1];
                     var skel_idx = shaderModel.BlockIndices[2];
                     var opt_idx = shaderModel.BlockIndices[3];
-                    // shape, skeleton, mat, option
+                    // shape, skeleton, option, option. 
                     shaderModel.BlockIndices[0] = shp_idx;
                     shaderModel.BlockIndices[1] = skel_idx;
-                    shaderModel.BlockIndices[2] = mat_idx;
+                    shaderModel.BlockIndices[2] = opt_idx;
                     shaderModel.BlockIndices[3] = opt_idx;
                 }
             }
@@ -154,7 +158,6 @@ namespace ShaderBuilderTool.Convert
             // Load variation data
             foreach (var shaderModel in bfsha.ShaderModels.Values)
             {
-                // This has to be -1 for MK8 or it crashes
                 shaderModel.DefaultProgramIndex = -1; 
                 shaderModel.BnshFile.Header.ApiVersion = (ushort)(args.Platform == Platforms.Ounce ? 200 : 0);
 
@@ -167,7 +170,7 @@ namespace ShaderBuilderTool.Convert
                     x => x.Name == shaderModel.Name);
                 Trace.Assert(intermediateShaderModel != null);
                 // Symbol names (optional, not usually needed)
-                SetupSymbols(shaderModel, intermediateShaderModel);
+                SetupSymbols(shaderModel, intermediateShaderModel, intermediateShader, bfsha.BinHeader.VersionMajor);
 
                 // Update and ensure all used choice variants fit the key table
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
@@ -288,17 +291,13 @@ namespace ShaderBuilderTool.Convert
                 shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
                 foreach (var prog in programs)
                     shaderModel.Programs.Add(prog.Item2);
+                if (args.DefaultProgramIndex >= 0 && args.DefaultProgramIndex < shaderModel.Programs.Count)
+                    shaderModel.DefaultProgramIndex = args.DefaultProgramIndex;
             }
         }
 
         static void CreateWiiU(BfshaFile bfsha, IntermediateShader intermediateShader, Args args, BfshaFile sharedBfsha)
         {
-            // Wii U needs gsh compile atm
-            // There is cemu shader compiler but it has bugs/inaccuracies but may be supported in the future
-            // If a developer wants to support it as it contiues, run https://github.com/Exzap/CafeGLSL
-            if (!GSHCompile.IsValid())
-                throw new Exception($"gshCompile.exe not present in folder of the tool!");
-
             // Load variation data
             foreach (var shaderModel in bfsha.ShaderModels.Values)
             {
@@ -309,7 +308,7 @@ namespace ShaderBuilderTool.Convert
                     x => x.Name == shaderModel.Name);
                 Trace.Assert(intermediateShaderModel != null);
                 // Symbol names (optional, not usually needed)
-                SetupSymbols(shaderModel, intermediateShaderModel);
+                SetupSymbols(shaderModel, intermediateShaderModel, intermediateShader, int.MaxValue);
 
                 // Update and ensure all used choice variants fit the key table before we process the programs
                 foreach (var variant in args.Variants.Where(x => x.ShaderModel == shaderModel.Name))
@@ -403,7 +402,6 @@ namespace ShaderBuilderTool.Convert
                 shaderModel.KeyTable = programs.SelectMany(x => x.Item1).ToArray();
             }
         }
-
         static void SortKeys(ref List<Tuple<int[], BfshaShaderProgram>> programs)
         {
             // Ordered by bit data
@@ -556,8 +554,8 @@ namespace ShaderBuilderTool.Convert
             return program;
         }
 
-        // Simple setup to prepare glsl symbols
-        static void SetupSymbols(ShaderModel shaderModel, IntermediateShader.ShaderModelInfo intermediate)
+        static void SetupSymbols(ShaderModel shaderModel, IntermediateShader.ShaderModelInfo intermediate,
+            IntermediateShader intermediateShader, int version)
         {
             // Symbol table
             // These must match the shader model uniform/sampler/buffer lists in amount
